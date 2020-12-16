@@ -56,7 +56,7 @@ func (sc *ShardedCache) Get(pos int64) (Data, bool) {
 }
 
 // Delete an entry from one shard of this cache
-func (sc *ShardedCache) Evict(pos int64) {
+func (sc *ShardedCache) Delete(pos int64) {
 	shardId := int64ToByte(pos)
 	sc.mtxList[shardId].Lock()
 	defer sc.mtxList[shardId].Unlock()

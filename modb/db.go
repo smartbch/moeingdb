@@ -13,7 +13,6 @@ import (
 
 	"github.com/moeing-chain/MoeingDB/cppbtree"
 	"github.com/moeing-chain/MoeingDB/modb/idxcache"
-	"github.com/moeing-chain/MoeingDB/modb/kvcache"
 	"github.com/moeing-chain/MoeingDB/modb/types"
 )
 
@@ -68,7 +67,6 @@ type MoDB struct {
 	sweepErr  error
 	btree     cppbtree.Tree // Top-level index
 	hpfile    types.HPFile
-	kvCache   kvcache.ShardedCache
 	idxCache  idxcache.ShardedCache
 	path      string
 	cfg       MoDBConfig
@@ -83,7 +81,6 @@ func New(path string, cfg MoDBConfig, f KVFilter) (*MoDB, error) {
 		path:     path,
 		cfg:      cfg,
 		btree:    cppbtree.TreeNew(),
-		kvCache:  kvcache.NewShardedCache(cfg.MaxCacheCap/256, cfg.EvictTryDist, cfg.InitCacheCap/256),
 		idxCache: idxcache.NewShardedCache(cfg.MaxCacheCap/256, cfg.EvictTryDist, cfg.InitCacheCap/256),
 		isUseful: f,
 	}
@@ -190,13 +187,9 @@ func (db *MoDB) findWithExpectedPairPos(key string, exitEarly bool, expectedPair
 			info.foundKV = true
 			return
 		}
-		info.pair, hit = db.kvCache.Get(info.pairPos)
-		if !hit {
-			info.pair, err = types.LoadKVPair(&db.hpfile, info.pairPos)
-			if err != nil {
-				return
-			}
-			db.kvCache.Add(info.pairPos, info.pair)
+		info.pair, err = types.LoadKVPair(&db.hpfile, info.pairPos)
+		if err != nil {
+			return
 		}
 		if info.pair.Key == key {
 			info.foundKV = true
@@ -253,7 +246,7 @@ func (db *MoDB) addSlice(slice *types.IndexSlice) error {
 
 // remove IndexSlice from cache and btree, and decr usefulByteCount
 func (db *MoDB) deleteSlice(slice *types.IndexSlice, offset int64) {
-	db.idxCache.Evict(offset)
+	db.idxCache.Delete(offset)
 	db.btree.Delete(slice.FirstKey)
 	db.meta.usefulByteCount -= slice.TotalSize()
 }
@@ -265,14 +258,12 @@ func (db *MoDB) addKVPair(pair *types.KVPair) (offset int64, err error) {
 		return
 	}
 	db.meta.usefulByteCount += pair.TotalSize()
-	db.kvCache.Add(offset, pair)
 	return
 }
 
 // remove KVPair from cache and decr usefulByteCount
 func (db *MoDB) deleteKVPair(pair *types.KVPair, pos int64) {
 	db.meta.usefulByteCount -= pair.TotalSize()
-	db.kvCache.Evict(pos)
 }
 
 // Remove a key and its corresponding value from DB.
@@ -607,7 +598,7 @@ func (batch *Batch) Replay(w ethdb.KeyValueWriter) (err error) {
 	return
 }
 
-// cache necessary IndexSlice and KVPair for 'key', such that when we call batch.Write() in the future,
+// cache necessary IndexSlice for 'key', such that when we call batch.Write() in the future,
 // it can run fast
 func (batch *Batch) cacheForKey(key string) {
 	batch.wg.Add(1)
