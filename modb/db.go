@@ -262,7 +262,7 @@ func (db *MoDB) addKVPair(pair *types.KVPair) (offset int64, err error) {
 }
 
 // remove KVPair from cache and decr usefulByteCount
-func (db *MoDB) deleteKVPair(pair *types.KVPair, pos int64) {
+func (db *MoDB) deleteKVPair(pair *types.KVPair) {
 	db.meta.usefulByteCount -= pair.TotalSize()
 }
 
@@ -273,7 +273,7 @@ func (db *MoDB) remove(key string) error {
 	if !info.foundKV {
 		return nil
 	}
-	db.deleteKVPair(info.pair, info.pairPos)
+	db.deleteKVPair(info.pair)
 	oldFirstKey := info.idxSlice.FirstKey
 	db.deleteSlice(info.idxSlice, info.idxPos)
 	if err = info.idxSlice.DeleteEntry(info.entryIdx, &db.hpfile); err != nil {
@@ -357,7 +357,7 @@ func (db *MoDB) set(key, value string) error {
 	db.deleteSlice(info.idxSlice, info.idxPos)
 	if info.foundKV {
 		//Modify old entry
-		db.deleteKVPair(info.pair, info.pairPos)
+		db.deleteKVPair(info.pair)
 		info.pair.Value = value
 		offset, err := db.addKVPair(info.pair)
 		if err != nil {

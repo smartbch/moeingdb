@@ -50,14 +50,17 @@ type Database interface {
 var _ Database = (*leveldb.Database)(nil)
 
 const (
-	MinEntryCount int = 10
-	MaxEntryCount int = 30
+	MinEntryCount int = 15
+	MaxEntryCount int = 40
 	MarginCount   int = 5
 
+	TotalSizeOfIndexSliceChange int = 23
+
 	// Payload types in the HPFile
-	KV_PAIR          byte = 66
-	INDEX_SLICE      byte = 68
-	DELETED_FIRSTKEY byte = 70
+	KV_PAIR            byte = 66
+	INDEX_SLICE        byte = 68
+	DELETED_FIRSTKEY   byte = 70
+	CHANGE_INDEX_SLICE byte = 72
 )
 
 // We recode this information on disk to recover the top-level index correctly
@@ -143,6 +146,42 @@ func Key2Hash(k string) uint32 {
 type Entry struct {
 	Hash   uint32 // the hash of KVPair's key
 	Offset int64  // the offset of the KVPair on disk
+}
+
+type IndexSliceChange struct {
+	IsDelete bool
+	IsAppend bool
+	Offset   int64
+	NewEntry Entry
+}
+
+func (ch *IndexSliceChange) Store(appender *HPFile) (int64, error) {
+	var buf [TotalSizeOfIndexSliceChange]byte
+	buf[0] = CHANGE_INDEX_SLICE
+	if ch.IsDelete {
+		buf[1] = 1
+	}
+	if ch.IsAppend {
+		buf[2] = 1
+	}
+	binary.LittleEndian.PutUint64(buf[3:11], uint64(ch.Offset))
+	binary.LittleEndian.PutUint32(buf[11:15], ch.NewEntry.Hash)
+	binary.LittleEndian.PutUint64(buf[15:23], uint64(ch.NewEntry.Offset))
+	return appender.Append([][]byte{buf[:]})
+}
+
+func LoadIndexSliceChange(reader *HPFile, off int64) (ch IndexSliceChange, err error) {
+	var buf [TotalSizeOfIndexSliceChange]byte
+	err = reader.ReadAt(buf[:], off, false)
+	if err != nil {
+		return
+	}
+	ch.IsDelete = buf[1] != 0
+	ch.IsAppend = buf[2] != 0
+	ch.Offset = int64(binary.LittleEndian.Uint64(buf[3:11]))
+	ch.NewEntry.Hash = binary.LittleEndian.Uint32(buf[11:15])
+	ch.NewEntry.Offset = int64(binary.LittleEndian.Uint64(buf[15:23]))
+	return
 }
 
 type EntryAndKey struct {
