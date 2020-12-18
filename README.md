@@ -1,2 +1,2 @@
 # MoeingDB
-Yet another KV database from Moeing
+An application-specific database for storing blockchain historical information
