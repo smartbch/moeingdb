@@ -1,7 +1,7 @@
 package indexer
 
 /*
-#cgo CXXFLAGS: -Wall -O3 -std=c++11 
+#cgo CXXFLAGS: -Wall -O3 -std=c++11
 #cgo LDFLAGS: -lstdc++
 #include "indexer.h"
 */
@@ -24,7 +24,7 @@ func (idr Indexer) Close() {
 }
 
 func (idr Indexer) AddBlock(height uint32, hash48 uint64, offset40 int64) bool {
-	return bool(C.indexer_add_block(idr.ptr, C.uint32_t(height), C.uint64_t(hash48), C.int64_t(offset40)));
+	return bool(C.indexer_add_block(idr.ptr, C.uint32_t(height), C.uint64_t(hash48), C.int64_t(offset40)))
 }
 
 func (idr Indexer) EraseBlock(height uint32, hash48 uint64) {
@@ -39,8 +39,8 @@ func (idr Indexer) GetOffsetByBlockHash(hash48 uint64) int64 {
 	return int64(C.indexer_offset_by_block_hash(idr.ptr, C.uint64_t(hash48)))
 }
 
-func (idr Indexer) AddTx(id56 uint64, hash48 uint64, offset40 int64) {
-	C.indexer_add_tx(idr.ptr, C.uint64_t(id56), C.uint64_t(hash48), C.int64_t(offset40))
+func (idr Indexer) AddTx(id56 uint64, hash48 uint64, offset40 int64) bool {
+	return bool(C.indexer_add_tx(idr.ptr, C.uint64_t(id56), C.uint64_t(hash48), C.int64_t(offset40)))
 }
 
 func (idr Indexer) EraseTx(id56 uint64, hash48 uint64) {
@@ -92,4 +92,3 @@ func (idr Indexer) QueryTxOffsets(addrHash uint64, topics []uint64, startHeight,
 	C.i64_list_destroy(i64List)
 	return res
 }
-
