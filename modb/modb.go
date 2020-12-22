@@ -27,6 +27,8 @@ type MoDB struct {
 	indexer indexer.Indexer
 }
 
+var _ types.DB = (*MoDB)(nil)
+
 func NewMoDB(path string) *MoDB {
 	metadb, err := indextree.NewRocksDB("rocksdb", path)
 	if err != nil {
@@ -50,7 +52,7 @@ func NewMoDB(path string) *MoDB {
 	if err != nil {
 		panic(err)
 	}
-	db.ReloadToIndexer()
+	db.reloadToIndexer()
 	copy(db.seed[:], db.metadb.Get([]byte("SEED")))
 	blkBz := db.metadb.Get([]byte("NEW"))
 	if blkBz == nil {
@@ -62,7 +64,7 @@ func NewMoDB(path string) *MoDB {
 		panic(err)
 	}
 	db.wg.Add(1)
-	go db.PostAddBlock(blk, -1)
+	go db.postAddBlock(blk, -1)
 	return db
 }
 
@@ -75,10 +77,10 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
 	db.wg.Add(1)
-	go db.PostAddBlock(blk, pruneTillHeight)
+	go db.postAddBlock(blk, pruneTillHeight)
 }
 
-func (db *MoDB) AppendToFile(data []byte) int64 {
+func (db *MoDB) appendToFile(data []byte) int64 {
 	var zeros [32]byte
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], uint32(len(data)))
@@ -90,7 +92,7 @@ func (db *MoDB) AppendToFile(data []byte) int64 {
 	return off
 }
 
-func (db *MoDB) ReadInFile(offset40 int64) []byte {
+func (db *MoDB) readInFile(offset40 int64) []byte {
 	var buf [4]byte
 	offset40 = AdjustOffset40(offset40, db.hpfile.Size())
 	err := db.hpfile.ReadAt(buf[:], offset40, false)
@@ -106,13 +108,13 @@ func (db *MoDB) ReadInFile(offset40 int64) []byte {
 	return bz
 }
 
-func (db *MoDB) PostAddBlock(blk *types.Block, pruneTillHeight int64) {
+func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	blkIdx := &types.BlockIndex{
 		Height:       uint32(blk.Height),
 		TxHash48List: make([]uint64, len(blk.TxList)),
 		TxPosList:    make([]int64, len(blk.TxList)),
 	}
-	db.FillLogIndex(blk, blkIdx)
+	db.fillLogIndex(blk, blkIdx)
 	db.mtx.Lock()
 	defer func() {
 		db.mtx.Unlock()
@@ -120,7 +122,7 @@ func (db *MoDB) PostAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}()
 	extraSeed := uint32(0)
 
-	offset40 := db.AppendToFile(blk.BlockInfo)
+	offset40 := db.appendToFile(blk.BlockInfo)
 	blkIdx.BeginOffset = offset40
 	for {
 		hash48 := Sum48(db.seed, extraSeed, blk.BlockHash[:])
@@ -133,7 +135,7 @@ func (db *MoDB) PostAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 
 	for i, tx := range blk.TxList {
-		offset40 = db.AppendToFile(tx.Content)
+		offset40 = db.appendToFile(tx.Content)
 		for {
 			hash48 := Sum48(db.seed, extraSeed, tx.HashId[:])
 			id56 := GetId56(blkIdx.Height, i)
@@ -165,10 +167,10 @@ func (db *MoDB) PostAddBlock(blk *types.Block, pruneTillHeight int64) {
 	binary.LittleEndian.PutUint64(b8[:], uint64(db.hpfile.Size()))
 	db.metadb.SetSync([]byte("HPF_SIZE"), b8[:])
 	db.metadb.DeleteSync([]byte("NEW"))
-	db.PruneTillBlock(pruneTillHeight)
+	db.pruneTillBlock(pruneTillHeight)
 }
 
-func (db *MoDB) PruneTillBlock(pruneTillHeight int64) {
+func (db *MoDB) pruneTillBlock(pruneTillHeight int64) {
 	if pruneTillHeight < 0 {
 		return
 	}
@@ -186,7 +188,7 @@ func (db *MoDB) PruneTillBlock(pruneTillHeight int64) {
 		if err != nil {
 			panic(err)
 		}
-		db.PruneBlock(bi)
+		db.pruneBlock(bi)
 		iter.Next()
 	}
 	for _, key := range keys {
@@ -194,7 +196,7 @@ func (db *MoDB) PruneTillBlock(pruneTillHeight int64) {
 	}
 }
 
-func (db *MoDB) PruneBlock(bi *types.BlockIndex) {
+func (db *MoDB) pruneBlock(bi *types.BlockIndex) {
 	err := db.hpfile.PruneHead(bi.BeginOffset)
 	if err != nil {
 		panic(err)
@@ -212,7 +214,7 @@ func (db *MoDB) PruneBlock(bi *types.BlockIndex) {
 	}
 }
 
-func (db *MoDB) ReloadToIndexer() {
+func (db *MoDB) reloadToIndexer() {
 	start := []byte("B1234")
 	end := []byte("B1234")
 	for i := 1; i < 5; i++ {
@@ -226,12 +228,12 @@ func (db *MoDB) ReloadToIndexer() {
 		if err != nil {
 			panic(err)
 		}
-		db.ReloadBlockToIndexer(bi)
+		db.reloadBlockToIndexer(bi)
 		iter.Next()
 	}
 }
 
-func (db *MoDB) ReloadBlockToIndexer(blkIdx *types.BlockIndex) {
+func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, blkIdx.BeginOffset)
 	for i, txHash48 := range blkIdx.TxHash48List {
 		id56 := GetId56(blkIdx.Height, i)
@@ -245,7 +247,7 @@ func (db *MoDB) ReloadBlockToIndexer(blkIdx *types.BlockIndex) {
 	}
 }
 
-func (db *MoDB) FillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
+func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
 	addrIndex := make(map[uint64][]uint32)
 	topicIndex := make(map[uint64][]uint32)
 	for i, tx := range blk.TxList {
@@ -277,7 +279,7 @@ func (db *MoDB) GetBlockByHeight(height int64) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	offset40 := db.indexer.GetOffsetByBlockHeight(uint32(height))
-	return db.ReadInFile(offset40)
+	return db.readInFile(offset40)
 }
 
 func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
@@ -285,7 +287,7 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	defer db.mtx.RUnlock()
 	id56 := GetId56(uint32(height), index)
 	offset40 := db.indexer.GetOffsetByTxID(id56)
-	return db.ReadInFile(offset40)
+	return db.readInFile(offset40)
 }
 
 func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
@@ -295,7 +297,7 @@ func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	for {
 		hash48 := Sum48(db.seed, 0, hash[:])
 		offset40 := db.indexer.GetOffsetByBlockHash(hash48)
-		bz := db.ReadInFile(offset40)
+		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
 		}
@@ -310,7 +312,7 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	for {
 		hash48 := Sum48(db.seed, 0, hash[:])
 		offset40 := db.indexer.GetOffsetByTxHash(hash48)
-		bz := db.ReadInFile(offset40)
+		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
 		}
@@ -318,17 +320,20 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	}
 }
 
-func (db *MoDB) QueryLogs(addr [20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	addrHash48 := Sum48(db.seed, 0, addr[:])
+	addrHash48 := uint64(1)<<63 // an invalid value
+	if addr != nil {
+		addrHash48 = Sum48(db.seed, 0, (*addr)[:])
+	}
 	topicHash48List := make([]uint64, len(topics))
 	for i, hash := range topics {
 		topicHash48List[i] = Sum48(db.seed, 0, hash[:])
 	}
 	offList := db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
 	for _, offset40 := range offList {
-		bz := db.ReadInFile(offset40)
+		bz := db.readInFile(offset40)
 		if !fn(bz) {
 			break
 		}
