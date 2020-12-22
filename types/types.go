@@ -71,6 +71,7 @@ type BlockIndex struct {
 }
 
 type DB interface {
+	Close()
 	AddBlock(blk *Block, pruneTillHeight int64)
 	GetBlockByHeight(height int64) []byte
 	GetTxByHeightAndIndex(height int64, index int) []byte

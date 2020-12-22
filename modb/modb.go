@@ -68,6 +68,12 @@ func NewMoDB(path string) *MoDB {
 	return db
 }
 
+func (db *MoDB) Close() {
+	db.hpfile.Close()
+	db.metadb.Close()
+	db.indexer.Close()
+}
+
 func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.wg.Wait()
 	var err error

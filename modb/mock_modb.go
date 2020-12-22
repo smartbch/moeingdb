@@ -12,6 +12,9 @@ type MockMoDB struct {
 	blkList []types.Block
 }
 
+func (db *MockMoDB) Close() {
+}
+
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
