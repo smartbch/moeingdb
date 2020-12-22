@@ -323,7 +323,7 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	addrHash48 := uint64(1)<<63 // an invalid value
+	addrHash48 := uint64(1) << 63 // an invalid value
 	if addr != nil {
 		addrHash48 = Sum48(db.seed, 0, (*addr)[:])
 	}

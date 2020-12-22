@@ -2,19 +2,25 @@ package modb
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/moeing-chain/MoeingDB/types"
 )
 
 type MockMoDB struct {
+	mtx     sync.RWMutex
 	blkList []types.Block
 }
 
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
+	db.mtx.Lock()
+	defer db.mtx.Unlock()
 	db.blkList = append(db.blkList, blk.Clone())
 }
 
 func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
 	for _, blk := range db.blkList {
 		if blk.Height == height {
 			return blk.BlockInfo
@@ -24,6 +30,8 @@ func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
 }
 
 func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
 	for _, blk := range db.blkList {
 		if blk.Height == height {
 			return blk.TxList[index].Content
@@ -33,6 +41,8 @@ func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 }
 
 func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
 	for _, blk := range db.blkList {
 		if bytes.Equal(blk.BlockHash[:], hash[:]) {
 			ok := collectResult(blk.BlockInfo)
@@ -44,6 +54,8 @@ func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) boo
 }
 
 func (db *MockMoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
 	for _, blk := range db.blkList {
 		for _, tx := range blk.TxList {
 			if bytes.Equal(tx.HashId[:], hash[:]) {
@@ -78,6 +90,8 @@ func hasAllTopic(log types.Log, topics [][32]byte) bool {
 }
 
 func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
 	for _, blk := range db.blkList {
 		for _, tx := range blk.TxList {
 			for _, log := range tx.LogList {
@@ -95,4 +109,3 @@ func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, en
 		}
 	}
 }
-

@@ -41,10 +41,10 @@ type Block struct {
 
 func (blk Block) Clone() (res Block) {
 	res = Block{
-		Height: blk.Height,
+		Height:    blk.Height,
 		BlockHash: blk.BlockHash,
 		BlockInfo: append([]byte{}, blk.BlockInfo...),
-		TxList: make([]Tx, len(blk.TxList)),
+		TxList:    make([]Tx, len(blk.TxList)),
 	}
 	for i := range blk.TxList {
 		res.TxList[i] = blk.TxList[i]
