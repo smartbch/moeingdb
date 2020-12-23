@@ -41,7 +41,7 @@ struct bits24_list {
 //| Address到TxKey的索引 | ShortHashID6 + BlockHeight4 | Magic Uint64            |
 //| Topic到TxKey的索引   | ShortHashID6 + BlockHeight4 | Magic Uint64            |
 
-// carefully choose the data types to make sure there are no padding bytes in 
+// We carefully choose the data types to make sure there are no padding bytes in 
 // the leaf nodes of btree_map (which are also called as target nodes)
 // positions are actually the value for block heights, but in blk_htpos2ptr, we
 // take them as part of keys, just to avoid padding bytes.

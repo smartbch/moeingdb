@@ -301,8 +301,11 @@ func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	defer db.mtx.RUnlock()
 	extraSeed := uint32(0)
 	for {
-		hash48 := Sum48(db.seed, 0, hash[:])
+		hash48 := Sum48(db.seed, extraSeed, hash[:])
 		offset40 := db.indexer.GetOffsetByBlockHash(hash48)
+		if offset40 < 0 {
+			break
+		}
 		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
@@ -316,8 +319,11 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	defer db.mtx.RUnlock()
 	extraSeed := uint32(0)
 	for {
-		hash48 := Sum48(db.seed, 0, hash[:])
+		hash48 := Sum48(db.seed, extraSeed, hash[:])
 		offset40 := db.indexer.GetOffsetByTxHash(hash48)
+		if offset40 < 0 {
+			break
+		}
 		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
