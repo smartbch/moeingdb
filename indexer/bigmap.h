@@ -187,7 +187,7 @@ public:
 		iter._end_idx = end_idx;
 		iter._end_key = end_key;
 		iter._map = this;
-		iter._curr_idx = start_idx
+		iter._curr_idx = start_idx;
 		if(_map_arr[iter._curr_idx] == nullptr) {// skip empty slot
 			for(; iter._curr_idx <= end_idx; iter._curr_idx++) {
 				if(_map_arr[iter._curr_idx] != nullptr) break;

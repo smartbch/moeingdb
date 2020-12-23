@@ -34,12 +34,12 @@ struct bits24_list {
 
 //| Name                 | Key                         | Value                   |
 //| -------------------- | --------------------------- | ----------------------- |
-//| Block内容            | Height1 + 3 + Offset5       | Pointer to TxIndex3 Vec |
-//| BlockHash索引        | ShortHashID6                | Height4                 |
-//| Transaction内容      | Height4 + TxIndex3          | Offset5                 |
-//| TransactionHash索引  | ShortHashID6                | BlockHeight4 + TxIndex3 |
-//| Address到TxKey的索引 | ShortHashID6 + BlockHeight4 | Magic Uint64            |
-//| Topic到TxKey的索引   | ShortHashID6 + BlockHeight4 | Magic Uint64            |
+//| Block Content        | Height1 + 3 + Offset5       | Pointer to TxIndex3 Vec |
+//| BlockHash Index      | ShortHashID6                | Height4                 |
+//| Transaction Content  | Height4 + TxIndex3          | Offset5                 |
+//| TransactionHash Index| ShortHashID6                | BlockHeight4 + TxIndex3 |
+//| Address to TxKey     | ShortHashID6 + BlockHeight4 | Magic Uint64            |
+//| Topic to TxKey       | ShortHashID6 + BlockHeight4 | Magic Uint64            |
 
 // We carefully choose the data types to make sure there are no padding bytes in 
 // the leaf nodes of btree_map (which are also called as target nodes)
@@ -96,50 +96,53 @@ public:
 		erase_in_log_map(topic_map, hash48, height);
 	}
 
+	// iterator over tx's id56
 	class tx_iterator {
 		indexer*    _parent; 
-		bits24_list _curr_list;
-		int         _curr_list_idx;
+		bits24_list _curr_list; //current block's bits24_list
+		int         _curr_list_idx; //pointing to an element in _curr_list.data
 		typename log_map::iterator _iter;
 	public:
 		friend class indexer;
 		bool valid() {
 			return _iter.valid() && _curr_list_idx < _curr_list.size;
 		}
-		uint64_t value() {
+		uint64_t value() {//returns id56: 4 bytes height and 3 bytes offset
 			if(!valid()) return uint64_t(-1);
-			auto height = uint64_t(uint32_t(_iter.key()));
+			auto height = uint64_t(uint32_t(_iter.key())); //discard the high 32 bits of Key
 			return (height<<24)|_curr_list.data[_curr_list_idx].to_uint64();
 		}
 		void next() {
 			if(!valid()) return;
-			if(_curr_list_idx < _curr_list.size) {
+			if(_curr_list_idx < _curr_list.size) { //within same height
 				_curr_list_idx++;
 				return;
 			}
-			_iter.next();
+			_iter.next(); //to the next height
 			if(!_iter.valid()) return;
 			load_list();
 		}
-		void load_list() {
+		void load_list() {//fill data to _curr_list
 			_curr_list_idx = 0;
 			auto magic_u64 = _iter.value();
 			auto height = uint32_t(_iter.key());
 			auto tag = magic_u64>>61;
 			magic_u64 = (magic_u64<<3)>>3; //clear the tag
-			if(tag == 7) {
+			if(tag == 7) { // more than 3 members. find them in block's bits24_vec
 				auto vec = _parent->get_vec_at_height(height, false);
 				assert(vec != nullptr);
 				_curr_list.size = vec->at(magic_u64).to_uint64();
 				_curr_list.data = vec->data() + magic_u64 + 1;
-			} else {
+			} else { // no more than 3 members. extract them out from magic_u64
 				assert(tag != 0 && tag <= 3);
 				_curr_list = bits24_list::from_uint64(magic_u64);
 			}
+			assert(_curr_list.size != 0);
 		}
 	};
 
-	tx_iterator iterator_at_log_map(log_map& m, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
+private:
+	tx_iterator _iterator_at_log_map(log_map& m, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
 		tx_iterator it;
 		it._parent = this;
 		it._iter = m.get_iterator(hash48>>32, (hash48<<32)|uint64_t(start_height),
@@ -147,11 +150,12 @@ public:
 		it.load_list();
 		return it;
 	}
+public:
 	tx_iterator addr_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
-		return iterator_at_log_map(this->addr_map, hash48, start_height, end_height);
+		return _iterator_at_log_map(this->addr_map, hash48, start_height, end_height);
 	}
 	tx_iterator topic_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
-		return iterator_at_log_map(this->topic_map, hash48, start_height, end_height);
+		return _iterator_at_log_map(this->topic_map, hash48, start_height, end_height);
 	}
 	i64_list query_tx_offsets(tx_offsets_query q);
 };
