@@ -75,6 +75,7 @@ func (idr Indexer) EraseTopic2Log(hash48 uint64, height uint32) {
 
 func (idr Indexer) QueryTxOffsets(addrHash uint64, topics []uint64, startHeight, endHeight uint32) []int64 {
 	var q C.struct_tx_offsets_query
+	// fill information into q
 	q.addr_hash = C.uint64_t(addrHash)
 	q.topic_count = C.int(len(topics))
 	for i := range topics {
@@ -82,7 +83,10 @@ func (idr Indexer) QueryTxOffsets(addrHash uint64, topics []uint64, startHeight,
 	}
 	q.start_height = C.uint32_t(startHeight)
 	q.end_height = C.uint32_t(endHeight)
+
 	i64List := C.indexer_query_tx_offsets(idr.ptr, q)
+
+	// copy data from i64List into golang slice
 	size := int(i64List.size)
 	int64Slice := (*[1 << 30]C.int64_t)(unsafe.Pointer(i64List.data))[:size:size]
 	res := make([]int64, size)

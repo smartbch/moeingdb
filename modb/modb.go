@@ -15,6 +15,8 @@ import (
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
+const MAX_TRY = uint32(1000)
+
 type MoDB struct {
 	wg      sync.WaitGroup
 	mtx     sync.RWMutex
@@ -34,6 +36,7 @@ func NewMoDB(path string) *MoDB {
 	if err != nil {
 		panic(err)
 	}
+	// 8MB Read Buffer, 2GB file block
 	hpfile, err := datatree.NewHPFile(8*1024*1024, 2048*1024*1024, path+"/data")
 	if err != nil {
 		panic(err)
@@ -46,14 +49,23 @@ func NewMoDB(path string) *MoDB {
 		idxBuf:  make([]byte, 0, 1024),
 		indexer: indexer.New(),
 	}
+	// for a half-committed block, hpfile may have some garbage after the position
+	// marked by HPF_SIZE
 	bz := db.metadb.Get([]byte("HPF_SIZE"))
 	size := binary.LittleEndian.Uint64(bz)
 	err = db.hpfile.Truncate(int64(size))
 	if err != nil {
 		panic(err)
 	}
+
+	// reload the persistent data from metadb into in-memory indexer
 	db.reloadToIndexer()
+
+	// hash seed is also saved in metadb. It cannot be changed in MoDB's lifetime
 	copy(db.seed[:], db.metadb.Get([]byte("SEED")))
+
+	// If "NEW" key is not deleted, a pending block has not been indexed, so we
+	// index it.
 	blkBz := db.metadb.Get([]byte("NEW"))
 	if blkBz == nil {
 		return db
@@ -64,28 +76,38 @@ func NewMoDB(path string) *MoDB {
 		panic(err)
 	}
 	db.wg.Add(1)
-	go db.postAddBlock(blk, -1)
+	go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
 	return db
 }
 
 func (db *MoDB) Close() {
+	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
 	db.hpfile.Close()
 	db.metadb.Close()
 	db.indexer.Close()
 }
 
+// Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
 func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
-	db.wg.Wait()
+	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
+
+	// firstly serialize and write the block into metadb under the key "NEW".
+	// if the indexing process is aborted due to crash or something, we
+	// can resume the block from metadb
 	var err error
 	db.blkBuf, err = blk.MarshalMsg(db.blkBuf[:0])
 	if err != nil {
 		panic(err)
 	}
 	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
+
+	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
 	go db.postAddBlock(blk, pruneTillHeight)
+	// when this function returns, we are sure that metadb has saved 'blk'
 }
 
+// append data at the end of hpfile, padding to 32 bytes
 func (db *MoDB) appendToFile(data []byte) int64 {
 	var zeros [32]byte
 	var buf [4]byte
@@ -98,22 +120,7 @@ func (db *MoDB) appendToFile(data []byte) int64 {
 	return off
 }
 
-func (db *MoDB) readInFile(offset40 int64) []byte {
-	var buf [4]byte
-	offset40 = AdjustOffset40(offset40, db.hpfile.Size())
-	err := db.hpfile.ReadAt(buf[:], offset40, false)
-	if err != nil {
-		panic(err)
-	}
-	size := binary.LittleEndian.Uint32(buf[:])
-	bz := make([]byte, int(size))
-	err = db.hpfile.ReadAt(bz, offset40, false)
-	if err != nil {
-		panic(err)
-	}
-	return bz
-}
-
+// post-processing after AddBlock
 func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	blkIdx := &types.BlockIndex{
 		Height:       uint32(blk.Height),
@@ -121,37 +128,35 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 		TxPosList:    make([]int64, len(blk.TxList)),
 	}
 	db.fillLogIndex(blk, blkIdx)
+	// Get a write lock before we start updating
 	db.mtx.Lock()
 	defer func() {
 		db.mtx.Unlock()
 		db.wg.Done()
 	}()
-	extraSeed := uint32(0)
 
 	offset40 := db.appendToFile(blk.BlockInfo)
 	blkIdx.BeginOffset = offset40
-	for {
+	// retry until we find an available hash48
+	for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
 		hash48 := Sum48(db.seed, extraSeed, blk.BlockHash[:])
-		if ok := db.indexer.AddBlock(blkIdx.Height, hash48, offset40); !ok {
-			extraSeed++
-			continue
+		if ok := db.indexer.AddBlock(blkIdx.Height, hash48, offset40); ok {
+			blkIdx.BlockHash48 = hash48
+			break
 		}
-		blkIdx.BlockHash48 = hash48
-		break
 	}
 
 	for i, tx := range blk.TxList {
 		offset40 = db.appendToFile(tx.Content)
-		for {
+		blkIdx.TxPosList[i] = offset40
+		// retry until we find an available hash48
+		for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
 			hash48 := Sum48(db.seed, extraSeed, tx.HashId[:])
 			id56 := GetId56(blkIdx.Height, i)
-			if ok := db.indexer.AddTx(id56, hash48, offset40); !ok {
-				extraSeed++
-				continue
+			if ok := db.indexer.AddTx(id56, hash48, offset40); ok {
+				blkIdx.TxHash48List[i] = hash48
+				break
 			}
-			blkIdx.TxHash48List[i] = hash48
-			blkIdx.TxPosList[i] = offset40
-			break
 		}
 	}
 	for i, addrHash48 := range blkIdx.AddrHashes {
@@ -161,6 +166,8 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 		db.indexer.AddTopic2Log(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
 	}
 
+	db.metadb.OpenNewBatch()
+	// save the index information to metadb, such that we can later recover and prune in-memory index
 	var err error
 	db.idxBuf, err = blkIdx.MarshalMsg(db.idxBuf[:0])
 	if err != nil {
@@ -168,45 +175,57 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 	buf := []byte("B1234")
 	binary.LittleEndian.PutUint32(buf[1:], blkIdx.Height)
-	db.metadb.SetSync(buf, db.idxBuf)
+	db.metadb.CurrBatch().Set(buf, db.idxBuf)
+	// write the size of hpfile to metadb
 	var b8 [8]byte
 	binary.LittleEndian.PutUint64(b8[:], uint64(db.hpfile.Size()))
-	db.metadb.SetSync([]byte("HPF_SIZE"), b8[:])
-	db.metadb.DeleteSync([]byte("NEW"))
+	db.metadb.CurrBatch().Set([]byte("HPF_SIZE"), b8[:])
+	// with blkIdx and hpfile updated, we finish processing the pending block.
+	db.metadb.CurrBatch().Delete([]byte("NEW"))
+	db.metadb.CloseOldBatch()
 	db.pruneTillBlock(pruneTillHeight)
 }
 
+// prune in-memory index and hpfile till the block at 'pruneTillHeight' (not included)
 func (db *MoDB) pruneTillBlock(pruneTillHeight int64) {
 	if pruneTillHeight < 0 {
 		return
 	}
+	// get an iterator in the range [0, pruneTillHeight)
 	start := []byte("B1234")
 	binary.LittleEndian.PutUint32(start[1:], 0)
 	end := []byte("B1234")
 	binary.LittleEndian.PutUint32(end[1:], uint32(pruneTillHeight))
 	iter := db.metadb.Iterator(start, end)
-	keys := make([][]byte, 0, 100)
 	defer iter.Close()
+	keys := make([][]byte, 0, 100)
 	for iter.Valid() {
 		keys = append(keys, iter.Key())
+		// get the recorded index information for a block
 		bi := &types.BlockIndex{}
 		_, err := bi.UnmarshalMsg(iter.Value())
 		if err != nil {
 			panic(err)
 		}
+		// now prune in-memory index and hpfile
 		db.pruneBlock(bi)
 		iter.Next()
 	}
+	// remove the recorded index information from metadb
+	db.metadb.OpenNewBatch()
 	for _, key := range keys {
-		db.metadb.DeleteSync(key)
+		db.metadb.CurrBatch().Delete(key)
 	}
+	db.metadb.CloseOldBatch()
 }
 
 func (db *MoDB) pruneBlock(bi *types.BlockIndex) {
+	// Prune the head part of hpfile
 	err := db.hpfile.PruneHead(bi.BeginOffset)
 	if err != nil {
 		panic(err)
 	}
+	// Erase the information recorded in 'bi'
 	db.indexer.EraseBlock(bi.Height, bi.BlockHash48)
 	for i, hash48 := range bi.TxHash48List {
 		id56 := GetId56(bi.Height, i)
@@ -220,14 +239,44 @@ func (db *MoDB) pruneBlock(bi *types.BlockIndex) {
 	}
 }
 
-func (db *MoDB) reloadToIndexer() {
-	start := []byte("B1234")
-	end := []byte("B1234")
-	for i := 1; i < 5; i++ {
-		start[i] = 0
-		end[i] = 0xFF
+// fill blkIdx.Topic* and blkIdx.Addr* according to 'blk'
+func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
+	addrIndex := make(map[uint64][]uint32)
+	topicIndex := make(map[uint64][]uint32)
+	for i, tx := range blk.TxList {
+		for _, log := range tx.LogList {
+			for _, topic := range log.Topics {
+				topicHash48 := Sum48(db.seed, 0, topic[:])
+				AppendAtKey(topicIndex, topicHash48, uint32(i))
+			}
+			addrHash48 := Sum48(db.seed, 0, log.Address[:])
+			AppendAtKey(addrIndex, addrHash48, uint32(i))
+		}
 	}
+	// the map 'addrIndex' is recorded into two slices
+	blkIdx.AddrHashes = make([]uint64, 0, len(addrIndex))
+	blkIdx.AddrPosLists = make([][]uint32, 0, len(addrIndex))
+	for addr, posList := range addrIndex {
+		blkIdx.AddrHashes = append(blkIdx.AddrHashes, addr)
+		blkIdx.AddrPosLists = append(blkIdx.AddrPosLists, posList)
+	}
+	// the map 'topicIndex' is recorded into two slices
+	blkIdx.TopicHashes = make([]uint64, 0, len(topicIndex))
+	blkIdx.TopicPosLists = make([][]uint32, 0, len(topicIndex))
+	for topic, posList := range topicIndex {
+		blkIdx.TopicHashes = append(blkIdx.TopicHashes, topic)
+		blkIdx.TopicPosLists = append(blkIdx.TopicPosLists, posList)
+	}
+	return
+}
+
+// reload index information from metadb into in-memory indexer
+func (db *MoDB) reloadToIndexer() {
+	// Get an iterator over all recorded blocks' indexes
+	start := []byte{byte('B'), 0, 0, 0, 0}
+	end := []byte{byte('B'), 255, 255, 255, 255}
 	iter := db.metadb.Iterator(start, end)
+	defer iter.Close()
 	for iter.Valid() {
 		bi := &types.BlockIndex{}
 		_, err := bi.UnmarshalMsg(iter.Value())
@@ -239,6 +288,7 @@ func (db *MoDB) reloadToIndexer() {
 	}
 }
 
+// reload one block's index information into in-memory indexer
 func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, blkIdx.BeginOffset)
 	for i, txHash48 := range blkIdx.TxHash48List {
@@ -253,34 +303,26 @@ func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 	}
 }
 
-func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
-	addrIndex := make(map[uint64][]uint32)
-	topicIndex := make(map[uint64][]uint32)
-	for i, tx := range blk.TxList {
-		for _, log := range tx.LogList {
-			addrHash48 := Sum48(db.seed, 0, log.Address[:])
-			AppendAtKey(addrIndex, addrHash48, uint32(i))
-			for _, topic := range log.Topics {
-				topicHash48 := Sum48(db.seed, 0, topic[:])
-				AppendAtKey(topicIndex, topicHash48, uint32(i))
-			}
-		}
+// read at offset40*32 to fetch data out
+func (db *MoDB) readInFile(offset40 int64) []byte {
+	// read the length out
+	var buf [4]byte
+	offset := GetRealOffset(offset40, db.hpfile.Size())
+	err := db.hpfile.ReadAt(buf[:], offset, false)
+	if err != nil {
+		panic(err)
 	}
-	blkIdx.AddrHashes = make([]uint64, 0, len(addrIndex))
-	blkIdx.AddrPosLists = make([][]uint32, 0, len(addrIndex))
-	blkIdx.TopicHashes = make([]uint64, 0, len(topicIndex))
-	blkIdx.TopicPosLists = make([][]uint32, 0, len(topicIndex))
-	for addr, posList := range addrIndex {
-		blkIdx.AddrHashes = append(blkIdx.AddrHashes, addr)
-		blkIdx.AddrPosLists = append(blkIdx.AddrPosLists, posList)
+	size := binary.LittleEndian.Uint32(buf[:])
+	// read the payload out
+	bz := make([]byte, int(size)+4)
+	err = db.hpfile.ReadAt(bz, offset, false)
+	if err != nil {
+		panic(err)
 	}
-	for topic, posList := range topicIndex {
-		blkIdx.TopicHashes = append(blkIdx.TopicHashes, topic)
-		blkIdx.TopicPosLists = append(blkIdx.TopicPosLists, posList)
-	}
-	return
+	return bz[4:]
 }
 
+// given a block's height, return serialized information.
 func (db *MoDB) GetBlockByHeight(height int64) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
@@ -288,6 +330,7 @@ func (db *MoDB) GetBlockByHeight(height int64) []byte {
 	return db.readInFile(offset40)
 }
 
+// given a transaction's height+index, return serialized information.
 func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
@@ -296,11 +339,12 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	return db.readInFile(offset40)
 }
 
+// given a block's hash, feed possibly-correct serialized information to collectResult; if
+// collectResult confirms the information is correct by returning true, this function stops loop.
 func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	extraSeed := uint32(0)
-	for {
+	for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
 		hash48 := Sum48(db.seed, extraSeed, hash[:])
 		offset40 := db.indexer.GetOffsetByBlockHash(hash48)
 		if offset40 < 0 {
@@ -310,15 +354,15 @@ func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 		if collectResult(bz) {
 			return
 		}
-		extraSeed++
 	}
 }
 
+// given a block's hash, feed possibly-correct serialized information to collectResult; if
+// collectResult confirms the information is correct by returning true, this function stops loop.
 func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	extraSeed := uint32(0)
-	for {
+	for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
 		hash48 := Sum48(db.seed, extraSeed, hash[:])
 		offset40 := db.indexer.GetOffsetByTxHash(hash48)
 		if offset40 < 0 {
@@ -328,10 +372,11 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 		if collectResult(bz) {
 			return
 		}
-		extraSeed++
 	}
 }
 
+// given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
+// whether it wants more data.
 func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
@@ -346,7 +391,7 @@ func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHei
 	offList := db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
 	for _, offset40 := range offList {
 		bz := db.readInFile(offset40)
-		if !fn(bz) {
+		if needMore := fn(bz); !needMore {
 			break
 		}
 	}
@@ -365,6 +410,7 @@ func Sum48(seed [8]byte, extraSeed uint32, key []byte) uint64 {
 	return (digest.Sum64() << 16) >> 16
 }
 
+// append value at a slice at 'key'. If the slice does not exist, create it.
 func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) {
 	_, ok := m[key]
 	if !ok {
@@ -373,22 +419,26 @@ func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) {
 	m[key] = append(m[key], value)
 }
 
-func Padding32(length int) int {
+// make sure (length+n)%32 == 0
+func Padding32(length int) (n int) {
 	mod := length % 32
-	if mod == 0 {
-		return 0
+	if mod != 0 {
+		n = 32 - mod
 	}
-	return 32 - mod
+	return
 }
 
-func AdjustOffset40(offset40, size int64) int64 {
-	t := int64(1) << 40
-	n := size % t
-	offset40 += n * t
-	if offset40 > size {
-		offset40 -= t
+// offset40 can represent 32TB range, but a hpfile's virual size can be larger than it.
+// calculate a real offset from offset40 which pointing to a valid position in hpfile.
+func GetRealOffset(offset40, size int64) int64 {
+	offset := 32 * offset40
+	unit := int64(32) << 40 // 32 tera bytes
+	n := size % unit
+	offset += n * unit
+	if offset > size {
+		offset -= unit
 	}
-	return offset40
+	return offset
 }
 
 func GetId56(height uint32, i int) uint64 {
