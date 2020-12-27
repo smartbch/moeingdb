@@ -17,3 +17,6 @@
 *.o
 *.log
 *.swo
+*.gcov
+*.gcda
+*.gcno

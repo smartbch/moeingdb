@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <iostream>
 #include "cpp-btree-1.0.1/btree_map.h"
 
 //compact integer whose alignment=1
@@ -88,7 +89,7 @@ public:
 		if(_map_arr[idx] == nullptr) return;
 		_map_arr[idx]->erase(k);
 	}
-	// seek to a postion no less than the 'k' at the basic_map in the 'idx'-th slot
+	// seek to a postion no large than the 'k' at the basic_map in the 'idx'-th slot
 	// *ok indicates whether the returned iterator is valid
 	typename basic_map::iterator seek(uint64_t idx, key_type k, bool* ok) {
 		assert(idx < slot_count);
@@ -129,11 +130,6 @@ public:
 		return total;
 	}
 
-	//  the basic_map at 'idx' is null or zero-sized.
-	bool is_empty_slot(int idx) {
-		return _map_arr[idx] != nullptr && _map_arr[idx].size() != 0;
-	}
-
 	// bigmap's iterator can run accross the boundaries of slots
 	class iterator {
 		bigmap* _map; 
@@ -142,13 +138,30 @@ public:
 		key_type _end_key; // stop iteration when _iter.key() == _end_key
 		typename basic_map::iterator _iter; // an iterator to _map._map_arr[_curr_idx]
 		bool _valid; // this iterator is still valid. once it turns false, it'll never turn true.
+		void handle_slot_crossing() {
+			if(_iter != _map->_map_arr[_curr_idx]->end()) {
+				return; // no need for slot crossing
+			}
+			_valid = false;
+			for(_curr_idx++; _curr_idx <= _end_idx; _curr_idx++) {
+				if(_map->_map_arr[_curr_idx] == nullptr) continue; //skip null slot
+				_iter = _map->_map_arr[_curr_idx]->begin();
+				_valid = _iter != _map->_map_arr[_curr_idx]->end(); //stop loop when _valid==true
+				if(_valid) break;
+			}
+		}
+		void check_ending() {
+			if(_curr_idx > _end_idx || (_curr_idx == _end_idx && _iter.key() >= _end_key)) {
+				_valid = false;
+			}
+		}
 	public:
 		friend class bigmap;
 		bool valid() {
 			return _valid;
 		}
 		int curr_idx() {
-			return _curr_idx();
+			return _curr_idx;
 		}
 		key_type key() {
 			return _iter->first;
@@ -157,25 +170,11 @@ public:
 			return _iter->second;
 		}
 		// when this iterator points at the end of a slot, move it to the next valid position
-		void handle_slot_crossing() {
-			if(_iter == _map->_map_arr[_curr_idx]->end()) {
-				return; // no need for slot crossing
-			}
-			_valid = false;
-			for(_curr_idx++; !_valid && _curr_idx <= _end_idx; _curr_idx++) {
-				if(_map->_map_arr[_curr_idx] != nullptr) continue; //skip null slot
-				_iter = _map->_map_arr[_curr_idx]->begin();
-				_valid = _iter != _map->_map_arr[_curr_idx]->end(); //stop loop when _valid==true
-			}
-		}
 		void next() {
 			if(!_valid) return;
 			_iter++;
 			handle_slot_crossing();
 			check_ending();
-		}
-		void check_ending() {
-			_valid = _valid && _curr_idx <= _end_idx && _iter.key() < _end_key; 
 		}
 	};
 
@@ -183,7 +182,7 @@ public:
 	// at (end_idx, end_key). The end point is not included.
 	iterator get_iterator(int start_idx, key_type start_key, int end_idx, key_type end_key) {
 		class iterator iter;
-		iter._valid = false;
+		iter._valid = true;
 		iter._end_idx = end_idx;
 		iter._end_key = end_key;
 		iter._map = this;
@@ -192,7 +191,12 @@ public:
 			for(; iter._curr_idx <= end_idx; iter._curr_idx++) {
 				if(_map_arr[iter._curr_idx] != nullptr) break;
 			}
-			iter._iter = _map_arr[iter._curr_idx]->begin();
+			if(_map_arr[iter._curr_idx] == nullptr) {
+				iter._valid = false;
+				return iter;
+			} else {
+				iter._iter = _map_arr[iter._curr_idx]->begin();
+			}
 		} else {
 			iter._iter = _map_arr[iter._curr_idx]->lower_bound(start_key);
 		}

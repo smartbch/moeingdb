@@ -1,4 +1,5 @@
 #include <vector>
+#include <iostream>
 #include "bigmap.h"
 #include "indexer.h"
 
@@ -19,14 +20,18 @@ struct bits24_list {
 	bits24 arr[3];
 	bits24* data;
 	int size;
+	uint32_t get(int i) {
+		if(data==nullptr) return arr[i].to_uint32();
+		return data[i].to_uint32();
+	}
 	// expand one 64-bit integer into 1, 2 or 3 20-bit integers.
 	static bits24_list from_uint64(uint64_t u) {
 		bits24_list l;
-		l.data = l.arr;
+		l.data = nullptr;
 		l.size = u >> 61;
 		assert(l.size <= 3);
 		for(int i=0; i<l.size; i++) {
-			l.arr[i] = bits24::from_uint64(u>>(i*20));
+			l.arr[i] = bits24::from_uint64((u>>(i*20))&0xFFFFF);
 		}
 		return l;
 	}
@@ -102,33 +107,13 @@ public:
 		bits24_list _curr_list; //current block's bits24_list
 		int         _curr_list_idx; //pointing to an element in _curr_list.data
 		typename log_map::iterator _iter;
-	public:
-		friend class indexer;
-		bool valid() {
-			return _iter.valid() && _curr_list_idx < _curr_list.size;
-		}
-		uint64_t value() {//returns id56: 4 bytes height and 3 bytes offset
-			if(!valid()) return uint64_t(-1);
-			auto height = uint64_t(uint32_t(_iter.key())); //discard the high 32 bits of Key
-			return (height<<24)|_curr_list.data[_curr_list_idx].to_uint64();
-		}
-		void next() {
-			if(!valid()) return;
-			if(_curr_list_idx < _curr_list.size) { //within same height
-				_curr_list_idx++;
-				return;
-			}
-			_iter.next(); //to the next height
-			if(!_iter.valid()) return;
-			load_list();
-		}
 		void load_list() {//fill data to _curr_list
 			_curr_list_idx = 0;
 			auto magic_u64 = _iter.value();
 			auto height = uint32_t(_iter.key());
 			auto tag = magic_u64>>61;
-			magic_u64 = (magic_u64<<3)>>3; //clear the tag
 			if(tag == 7) { // more than 3 members. find them in block's bits24_vec
+				magic_u64 = (magic_u64<<3)>>3; //clear the tag
 				auto vec = _parent->get_vec_at_height(height, false);
 				assert(vec != nullptr);
 				_curr_list.size = vec->at(magic_u64).to_uint64();
@@ -138,6 +123,29 @@ public:
 				_curr_list = bits24_list::from_uint64(magic_u64);
 			}
 			assert(_curr_list.size != 0);
+		}
+	public:
+		friend class indexer;
+		bool valid() {
+			return _iter.valid() && _curr_list_idx < _curr_list.size;
+		}
+		uint64_t value() {//returns id56: 4 bytes height and 3 bytes offset
+			if(!valid()) return uint64_t(-1);
+			auto height = uint64_t(uint32_t(_iter.key())); //discard the high 32 bits of Key
+			return (height<<24)|_curr_list.get(_curr_list_idx);
+		}
+		void next() {
+			if(!valid()) return;
+			if(_curr_list_idx < _curr_list.size) { //within same height
+				_curr_list_idx++;
+			}
+			if(_curr_list_idx == _curr_list.size) {
+				_iter.next(); //to the next height
+				if(!_iter.valid()) {
+					return;
+				}
+				load_list();
+			}
 		}
 	};
 
@@ -157,7 +165,7 @@ public:
 	tx_iterator topic_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
 		return _iterator_at_log_map(this->topic_map, hash48, start_height, end_height);
 	}
-	i64_list query_tx_offsets(tx_offsets_query q);
+	i64_list query_tx_offsets(const tx_offsets_query& q);
 };
 
 // add a new block's information, return whether this 'hash48' is available to use
@@ -210,10 +218,12 @@ int64_t indexer::offset_by_block_height(uint32_t height) {
 bits24_vec* indexer::get_vec_at_height(uint32_t height, bool create_if_null) {
 	bool ok;
 	auto it = get_iter_at_height(height, &ok);
-	if(!ok) return nullptr; //no such height
+	if(!ok) {
+		return nullptr; //no such height
+	}
 	if(it->second == nullptr && create_if_null) {
 		auto v = new bits24_vec;
-		blk_htpos2ptr_map.insert(height>>24, it->first, v);
+		it->second = v;
 		return v;
 	}
 	return it->second;
@@ -299,7 +309,7 @@ bool iters_value_all_equal(std::vector<indexer::tx_iterator>& iters) {
 }
 
 // given query condition 'q', query a list of offsets for transactions
-i64_list indexer::query_tx_offsets(tx_offsets_query q) {
+i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 	auto i64_vec = new std::vector<int64_t>;
 	std::vector<indexer::tx_iterator> iters;
 	if(q.addr_hash>>48 == 0) {// only consider valid hash
@@ -311,9 +321,9 @@ i64_list indexer::query_tx_offsets(tx_offsets_query q) {
 	if(iters.size() == 0) {
 		return i64_list{.vec_ptr=nullptr, .data=nullptr, .size=0};
 	}
-	for(bool all_valid=iters_all_valid(iters); all_valid ; iters[0].next()) {
+	for(bool all_valid=iters_all_valid(iters); all_valid; iters[0].next()) {
 		for(int i=1; i<iters.size(); i++) {
-			while(iters[i].valid() && iters[i].value() <= iters[0].value()) {
+			while(iters[i].valid() && iters[i].value() < iters[0].value()) {
 				iters[i].next(); //all the others mutch catch up with iters[0]
 			}
 		}
