@@ -103,6 +103,7 @@ public:
 
 	// iterator over tx's id56
 	class tx_iterator {
+		bool        _valid;
 		indexer*    _parent; 
 		bits24_list _curr_list; //current block's bits24_list
 		int         _curr_list_idx; //pointing to an element in _curr_list.data
@@ -127,7 +128,7 @@ public:
 	public:
 		friend class indexer;
 		bool valid() {
-			return _iter.valid() && _curr_list_idx < _curr_list.size;
+			return _valid && _iter.valid() && _curr_list_idx < _curr_list.size;
 		}
 		uint64_t value() {//returns id56: 4 bytes height and 3 bytes offset
 			if(!valid()) return uint64_t(-1);
@@ -135,7 +136,10 @@ public:
 			return (height<<24)|_curr_list.get(_curr_list_idx);
 		}
 		void next() {
-			if(!valid()) return;
+			if(!valid()) {
+				_valid = false;
+				return;
+			}
 			if(_curr_list_idx < _curr_list.size) { //within same height
 				_curr_list_idx++;
 			}
@@ -153,6 +157,7 @@ private:
 	tx_iterator _iterator_at_log_map(log_map& m, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
 		tx_iterator it;
 		it._parent = this;
+		it._valid = true;
 		it._iter = m.get_iterator(hash48>>32, (hash48<<32)|uint64_t(start_height),
 		                          hash48>>32, (hash48<<32)|uint64_t(end_height));
 		it.load_list();
@@ -321,15 +326,20 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 	if(iters.size() == 0) {
 		return i64_list{.vec_ptr=nullptr, .data=nullptr, .size=0};
 	}
-	for(bool all_valid=iters_all_valid(iters); all_valid; iters[0].next()) {
+	while(iters_all_valid(iters)) {
 		for(int i=1; i<iters.size(); i++) {
 			while(iters[i].valid() && iters[i].value() < iters[0].value()) {
 				iters[i].next(); //all the others mutch catch up with iters[0]
 			}
 		}
-		all_valid = iters_all_valid(iters);
-		if(all_valid && iters_value_all_equal(iters)) { // found a matching tx
+		if(!iters_all_valid(iters)) break;
+		if(iters_value_all_equal(iters)) { // found a matching tx
 			i64_vec->push_back(offset_by_tx_id(iters[0].value()));
+			for(int i=0; i<iters.size(); i++) {
+				iters[i].next();
+			}
+		} else {
+			iters[0].next();
 		}
 	}
 	return i64_list{.vec_ptr=i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};

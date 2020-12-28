@@ -12,6 +12,13 @@ import (
 	"github.com/moeing-chain/MoeingDB/types"
 )
 
+/*  Following keys are saved in rocksdb:
+	"HPF_SIZE" the size of hpfile
+	"SEED" seed for xxhash, used to generate short hash
+	"NEW" new block's information for indexing, deleted after consumption
+	"BXXXX" ('B' followed by 4 bytes) the indexing information for a block
+*/
+
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
@@ -30,6 +37,32 @@ type MoDB struct {
 }
 
 var _ types.DB = (*MoDB)(nil)
+
+func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
+	metadb, err := indextree.NewRocksDB("rocksdb", path)
+	if err != nil {
+		panic(err)
+	}
+	hpfile, err := datatree.NewHPFile(8*1024*1024, 2048*1024*1024, path+"/data")
+	if err != nil {
+		panic(err)
+	}
+	db := &MoDB{
+		path:    path,
+		metadb:  metadb,
+		hpfile:  &hpfile,
+		blkBuf:  make([]byte, 0, 1024),
+		idxBuf:  make([]byte, 0, 1024),
+		seed:    seed,
+		indexer: indexer.New(),
+	}
+	var zero [8]byte
+	db.metadb.OpenNewBatch()
+	db.metadb.CurrBatch().Set([]byte("HPF_SIZE"), zero[:])
+	db.metadb.CurrBatch().Set([]byte("SEED"), db.seed[:])
+	db.metadb.CloseOldBatch()
+	return db
+}
 
 func NewMoDB(path string) *MoDB {
 	metadb, err := indextree.NewRocksDB("rocksdb", path)
@@ -77,6 +110,7 @@ func NewMoDB(path string) *MoDB {
 	}
 	db.wg.Add(1)
 	go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
+	db.wg.Wait() // wait for goroutine to finish
 	return db
 }
 
@@ -90,6 +124,9 @@ func (db *MoDB) Close() {
 // Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
 func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
+	if(blk == nil) {
+		return
+	}
 
 	// firstly serialize and write the block into metadb under the key "NEW".
 	// if the indexing process is aborted due to crash or something, we
@@ -117,7 +154,7 @@ func (db *MoDB) appendToFile(data []byte) int64 {
 	if err != nil {
 		panic(err)
 	}
-	return off
+	return off/32
 }
 
 // post-processing after AddBlock
@@ -183,6 +220,13 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	// with blkIdx and hpfile updated, we finish processing the pending block.
 	db.metadb.CurrBatch().Delete([]byte("NEW"))
 	db.metadb.CloseOldBatch()
+	db.hpfile.Flush()
+	if db.hpfile.Size() > 192 {
+		err = db.hpfile.ReadAt(b8[:], 192, false)
+		if err != nil {
+			panic(err)
+		}
+	}
 	db.pruneTillBlock(pruneTillHeight)
 }
 
@@ -307,7 +351,7 @@ func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 func (db *MoDB) readInFile(offset40 int64) []byte {
 	// read the length out
 	var buf [4]byte
-	offset := GetRealOffset(offset40, db.hpfile.Size())
+	offset := GetRealOffset(offset40*32, db.hpfile.Size())
 	err := db.hpfile.ReadAt(buf[:], offset, false)
 	if err != nil {
 		panic(err)
@@ -327,6 +371,9 @@ func (db *MoDB) GetBlockByHeight(height int64) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	offset40 := db.indexer.GetOffsetByBlockHeight(uint32(height))
+	if offset40 < 0 {
+		return nil
+	}
 	return db.readInFile(offset40)
 }
 
@@ -336,6 +383,9 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	defer db.mtx.RUnlock()
 	id56 := GetId56(uint32(height), index)
 	offset40 := db.indexer.GetOffsetByTxID(id56)
+	if offset40 < 0 {
+		return nil
+	}
 	return db.readInFile(offset40)
 }
 
@@ -430,10 +480,12 @@ func Padding32(length int) (n int) {
 
 // offset40 can represent 32TB range, but a hpfile's virual size can be larger than it.
 // calculate a real offset from offset40 which pointing to a valid position in hpfile.
-func GetRealOffset(offset40, size int64) int64 {
-	offset := 32 * offset40
+func GetRealOffset(offset, size int64) int64 {
 	unit := int64(32) << 40 // 32 tera bytes
-	n := size % unit
+	n := size / unit
+	if size % unit == 0 {
+		n--
+	}
 	offset += n * unit
 	if offset > size {
 		offset -= unit

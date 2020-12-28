@@ -16,6 +16,9 @@ func (db *MockMoDB) Close() {
 }
 
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
+	if(blk == nil) {
+		return
+	}
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
 	db.blkList = append(db.blkList, blk.Clone())
@@ -37,6 +40,9 @@ func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	defer db.mtx.RUnlock()
 	for _, blk := range db.blkList {
 		if blk.Height == height {
+			if index >= len(blk.TxList) {
+				return nil
+			}
 			return blk.TxList[index].Content
 		}
 	}
@@ -104,8 +110,8 @@ func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, en
 				if !hasAllTopic(log, topics) {
 					continue
 				}
-				stop := fn(tx.Content)
-				if stop {
+				needMore := fn(tx.Content)
+				if !needMore {
 					return
 				}
 			}

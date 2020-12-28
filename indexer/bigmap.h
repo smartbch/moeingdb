@@ -151,7 +151,10 @@ public:
 			}
 		}
 		void check_ending() {
-			if(_curr_idx > _end_idx || (_curr_idx == _end_idx && _iter.key() >= _end_key)) {
+			if(_curr_idx > _end_idx) {
+				_valid = false;
+			} else if(_curr_idx == _end_idx &&
+				(_iter.key() >= _end_key || _iter == _map->_map_arr[_curr_idx]->end())) {
 				_valid = false;
 			}
 		}

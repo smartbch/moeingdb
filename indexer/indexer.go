@@ -88,6 +88,9 @@ func (idr Indexer) QueryTxOffsets(addrHash uint64, topics []uint64, startHeight,
 
 	// copy data from i64List into golang slice
 	size := int(i64List.size)
+	if size == 0 {
+		return nil
+	}
 	int64Slice := (*[1 << 30]C.int64_t)(unsafe.Pointer(i64List.data))[:size:size]
 	res := make([]int64, size)
 	for i := range res {

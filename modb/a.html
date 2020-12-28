@@ -1,0 +1,749 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>modb: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/moeing-chain/MoeingDB/modb/mock_modb.go (94.6%)</option>
+				
+				<option value="file1">github.com/moeing-chain/MoeingDB/modb/modb.go (91.9%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package modb
+
+import (
+        "bytes"
+        "sync"
+
+        "github.com/moeing-chain/MoeingDB/types"
+)
+
+type MockMoDB struct {
+        mtx     sync.RWMutex
+        blkList []types.Block
+}
+
+func (db *MockMoDB) Close() {<span class="cov0" title="0">
+}</span>
+
+func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) <span class="cov8" title="1">{
+        if(blk == nil) </span><span class="cov8" title="1">{
+                return
+        }</span>
+        <span class="cov8" title="1">db.mtx.Lock()
+        defer db.mtx.Unlock()
+        db.blkList = append(db.blkList, blk.Clone())</span>
+}
+
+func (db *MockMoDB) GetBlockByHeight(height int64) []byte <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for _, blk := range db.blkList </span><span class="cov8" title="1">{
+                if blk.Height == height </span><span class="cov8" title="1">{
+                        return blk.BlockInfo
+                }</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for _, blk := range db.blkList </span><span class="cov8" title="1">{
+                if blk.Height == height </span><span class="cov8" title="1">{
+                        if index &gt;= len(blk.TxList) </span><span class="cov8" title="1">{
+                                return nil
+                        }</span>
+                        <span class="cov8" title="1">return blk.TxList[index].Content</span>
+                }
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for _, blk := range db.blkList </span><span class="cov8" title="1">{
+                if bytes.Equal(blk.BlockHash[:], hash[:]) </span><span class="cov8" title="1">{
+                        ok := collectResult(blk.BlockInfo)
+                        if !ok </span><span class="cov0" title="0">{
+                                panic("should be true!")</span>
+                        }
+                }
+        }
+}
+
+func (db *MockMoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for _, blk := range db.blkList </span><span class="cov8" title="1">{
+                for _, tx := range blk.TxList </span><span class="cov8" title="1">{
+                        if bytes.Equal(tx.HashId[:], hash[:]) </span><span class="cov8" title="1">{
+                                ok := collectResult(tx.Content)
+                                if !ok </span><span class="cov0" title="0">{
+                                        panic("should be true!")</span>
+                                }
+                        }
+                }
+        }
+}
+
+func hasTopic(log types.Log, t [32]byte) bool <span class="cov8" title="1">{
+        for _, topic := range log.Topics </span><span class="cov8" title="1">{
+                if bytes.Equal(topic[:], t[:]) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func hasAllTopic(log types.Log, topics [][32]byte) bool <span class="cov8" title="1">{
+        if len(topics) == 0 </span><span class="cov8" title="1">{
+                return true
+        }</span>
+        <span class="cov8" title="1">for _, t := range topics </span><span class="cov8" title="1">{
+                if !hasTopic(log, t) </span><span class="cov8" title="1">{
+                        return false
+                }</span>
+        }
+        <span class="cov8" title="1">return true</span>
+}
+
+func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for _, blk := range db.blkList </span><span class="cov8" title="1">{
+                for _, tx := range blk.TxList </span><span class="cov8" title="1">{
+                        for _, log := range tx.LogList </span><span class="cov8" title="1">{
+                                if addr != nil &amp;&amp; !bytes.Equal((*addr)[:], log.Address[:]) </span><span class="cov8" title="1">{
+                                        continue</span>
+                                }
+                                <span class="cov8" title="1">if !hasAllTopic(log, topics) </span><span class="cov8" title="1">{
+                                        continue</span>
+                                }
+                                <span class="cov8" title="1">needMore := fn(tx.Content)
+                                if !needMore </span><span class="cov0" title="0">{
+                                        return
+                                }</span>
+                        }
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package modb
+
+import (
+        "fmt"
+        "encoding/binary"
+        "sync"
+
+        "github.com/cespare/xxhash"
+        "github.com/moeing-chain/MoeingADS/datatree"
+        "github.com/moeing-chain/MoeingADS/indextree"
+
+        "github.com/moeing-chain/MoeingDB/indexer"
+        "github.com/moeing-chain/MoeingDB/types"
+)
+
+/*  Following keys are saved in rocksdb:
+        "HPF_SIZE" the size of hpfile
+        "SEED" seed for xxhash, used to generate short hash
+        "NEW" new block's information for indexing, deleted after consumption
+        "BXXXX" ('B' followed by 4 bytes) the indexing information for a block
+*/
+
+type RocksDB = indextree.RocksDB
+type HPFile = datatree.HPFile
+
+const MAX_TRY = uint32(1000)
+
+type MoDB struct {
+        wg      sync.WaitGroup
+        mtx     sync.RWMutex
+        path    string
+        metadb  *RocksDB
+        hpfile  *HPFile
+        blkBuf  []byte
+        idxBuf  []byte
+        seed    [8]byte
+        indexer indexer.Indexer
+}
+
+var _ types.DB = (*MoDB)(nil)
+
+func CreateEmptyMoDB(path string, seed [8]byte) *MoDB <span class="cov8" title="1">{
+        metadb, err := indextree.NewRocksDB("rocksdb", path)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">hpfile, err := datatree.NewHPFile(8*1024*1024, 2048*1024*1024, path+"/data")
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">db := &amp;MoDB{
+                path:    path,
+                metadb:  metadb,
+                hpfile:  &amp;hpfile,
+                blkBuf:  make([]byte, 0, 1024),
+                idxBuf:  make([]byte, 0, 1024),
+                seed:    seed,
+                indexer: indexer.New(),
+        }
+        var zero [8]byte
+        db.metadb.OpenNewBatch()
+        db.metadb.CurrBatch().Set([]byte("HPF_SIZE"), zero[:])
+        fmt.Printf("Now write SEED %#v\n", seed)
+        db.metadb.CurrBatch().Set([]byte("SEED"), db.seed[:])
+        db.metadb.CloseOldBatch()
+        return db</span>
+}
+
+func NewMoDB(path string) *MoDB <span class="cov8" title="1">{
+        metadb, err := indextree.NewRocksDB("rocksdb", path)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        // 8MB Read Buffer, 2GB file block
+        <span class="cov8" title="1">hpfile, err := datatree.NewHPFile(8*1024*1024, 2048*1024*1024, path+"/data")
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">db := &amp;MoDB{
+                path:    path,
+                metadb:  metadb,
+                hpfile:  &amp;hpfile,
+                blkBuf:  make([]byte, 0, 1024),
+                idxBuf:  make([]byte, 0, 1024),
+                indexer: indexer.New(),
+        }
+        // for a half-committed block, hpfile may have some garbage after the position
+        // marked by HPF_SIZE
+        bz := db.metadb.Get([]byte("HPF_SIZE"))
+        size := binary.LittleEndian.Uint64(bz)
+        err = db.hpfile.Truncate(int64(size))
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        // reload the persistent data from metadb into in-memory indexer
+        <span class="cov8" title="1">db.reloadToIndexer()
+
+        // hash seed is also saved in metadb. It cannot be changed in MoDB's lifetime
+        copy(db.seed[:], db.metadb.Get([]byte("SEED")))
+        fmt.Printf("Now read SEED %#v\n", db.seed)
+
+        // If "NEW" key is not deleted, a pending block has not been indexed, so we
+        // index it.
+        blkBz := db.metadb.Get([]byte("NEW"))
+        if blkBz == nil </span><span class="cov8" title="1">{
+                return db
+        }</span>
+        <span class="cov0" title="0">blk := &amp;types.Block{}
+        _, err = blk.UnmarshalMsg(blkBz)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov0" title="0">db.wg.Add(1)
+        go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
+        db.wg.Wait() // wait for goroutine to finish
+        return db</span>
+}
+
+func (db *MoDB) Close() <span class="cov8" title="1">{
+        db.wg.Wait() // wait for previous postAddBlock goroutine to finish
+        db.hpfile.Close()
+        db.metadb.Close()
+        db.indexer.Close()
+}</span>
+
+// Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
+func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) <span class="cov8" title="1">{
+        db.wg.Wait() // wait for previous postAddBlock goroutine to finish
+        if(blk == nil) </span><span class="cov8" title="1">{
+                return
+        }</span>
+
+        // firstly serialize and write the block into metadb under the key "NEW".
+        // if the indexing process is aborted due to crash or something, we
+        // can resume the block from metadb
+        <span class="cov8" title="1">var err error
+        db.blkBuf, err = blk.MarshalMsg(db.blkBuf[:0])
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">db.metadb.SetSync([]byte("NEW"), db.blkBuf)
+
+        // start the postAddBlock goroutine which should finish before the next indexing job
+        db.wg.Add(1)
+        go db.postAddBlock(blk, pruneTillHeight)</span>
+        // when this function returns, we are sure that metadb has saved 'blk'
+}
+
+// append data at the end of hpfile, padding to 32 bytes
+func (db *MoDB) appendToFile(data []byte) int64 <span class="cov8" title="1">{
+        var zeros [32]byte
+        var buf [4]byte
+        binary.LittleEndian.PutUint32(buf[:], uint32(len(data)))
+        pad := Padding32(4 + len(data))
+        off, err := db.hpfile.Append([][]byte{buf[:], data, zeros[:pad]})
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">fmt.Printf("Now We Write at %d%%32=%d filesize %d\n", off, off%32, db.hpfile.Size())
+        return off/32</span>
+}
+
+// post-processing after AddBlock
+func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) <span class="cov8" title="1">{
+        blkIdx := &amp;types.BlockIndex{
+                Height:       uint32(blk.Height),
+                TxHash48List: make([]uint64, len(blk.TxList)),
+                TxPosList:    make([]int64, len(blk.TxList)),
+        }
+        db.fillLogIndex(blk, blkIdx)
+        // Get a write lock before we start updating
+        db.mtx.Lock()
+        defer func() </span><span class="cov8" title="1">{
+                db.mtx.Unlock()
+                db.wg.Done()
+        }</span>()
+
+        <span class="cov8" title="1">offset40 := db.appendToFile(blk.BlockInfo)
+        blkIdx.BeginOffset = offset40
+        // retry until we find an available hash48
+        for extraSeed := uint32(0); extraSeed &lt; MAX_TRY; extraSeed++ </span><span class="cov8" title="1">{
+                hash48 := Sum48(db.seed, extraSeed, blk.BlockHash[:])
+                if ok := db.indexer.AddBlock(blkIdx.Height, hash48, offset40); ok </span><span class="cov8" title="1">{
+                        blkIdx.BlockHash48 = hash48
+                        break</span>
+                }
+        }
+
+        <span class="cov8" title="1">for i, tx := range blk.TxList </span><span class="cov8" title="1">{
+                offset40 = db.appendToFile(tx.Content)
+                blkIdx.TxPosList[i] = offset40
+                // retry until we find an available hash48
+                for extraSeed := uint32(0); extraSeed &lt; MAX_TRY; extraSeed++ </span><span class="cov8" title="1">{
+                        hash48 := Sum48(db.seed, extraSeed, tx.HashId[:])
+                        id56 := GetId56(blkIdx.Height, i)
+                        if ok := db.indexer.AddTx(id56, hash48, offset40); ok </span><span class="cov8" title="1">{
+                                blkIdx.TxHash48List[i] = hash48
+                                break</span>
+                        }
+                }
+        }
+        <span class="cov8" title="1">for i, addrHash48 := range blkIdx.AddrHashes </span><span class="cov8" title="1">{
+                db.indexer.AddAddr2Log(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
+        }</span>
+        <span class="cov8" title="1">for i, topicHash48 := range blkIdx.TopicHashes </span><span class="cov8" title="1">{
+                db.indexer.AddTopic2Log(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
+        }</span>
+
+        <span class="cov8" title="1">db.metadb.OpenNewBatch()
+        // save the index information to metadb, such that we can later recover and prune in-memory index
+        //fmt.Printf("Before MarshalMsg %#v\n", blkIdx)
+        var err error
+        db.idxBuf, err = blkIdx.MarshalMsg(db.idxBuf[:0])
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        //if true {
+        //        bi := &amp;types.BlockIndex{}
+        //        _, err := bi.UnmarshalMsg(db.idxBuf)
+        //        if err != nil {
+        //                panic(err)
+        //        }
+        //        fmt.Printf("Fuck %#v\n", bi)
+        //}
+        <span class="cov8" title="1">buf := []byte("B1234")
+        binary.LittleEndian.PutUint32(buf[1:], blkIdx.Height)
+        db.metadb.CurrBatch().Set(buf, db.idxBuf)
+        // write the size of hpfile to metadb
+        var b8 [8]byte
+        binary.LittleEndian.PutUint64(b8[:], uint64(db.hpfile.Size()))
+        db.metadb.CurrBatch().Set([]byte("HPF_SIZE"), b8[:])
+        // with blkIdx and hpfile updated, we finish processing the pending block.
+        db.metadb.CurrBatch().Delete([]byte("NEW"))
+        db.metadb.CloseOldBatch()
+        db.hpfile.Flush()
+        fmt.Printf("Now We Flush()\n")
+        if db.hpfile.Size() &gt; 192 </span><span class="cov8" title="1">{
+                fmt.Printf("Now We Read at 192\n")
+                err = db.hpfile.ReadAt(b8[:], 192, false)
+                if err != nil </span><span class="cov0" title="0">{
+                        panic(err)</span>
+                }
+        }
+        <span class="cov8" title="1">db.pruneTillBlock(pruneTillHeight)</span>
+}
+
+// prune in-memory index and hpfile till the block at 'pruneTillHeight' (not included)
+func (db *MoDB) pruneTillBlock(pruneTillHeight int64) <span class="cov8" title="1">{
+        if pruneTillHeight &lt; 0 </span><span class="cov8" title="1">{
+                return
+        }</span>
+        // get an iterator in the range [0, pruneTillHeight)
+        <span class="cov8" title="1">start := []byte("B1234")
+        binary.LittleEndian.PutUint32(start[1:], 0)
+        end := []byte("B1234")
+        binary.LittleEndian.PutUint32(end[1:], uint32(pruneTillHeight))
+        iter := db.metadb.Iterator(start, end)
+        defer iter.Close()
+        keys := make([][]byte, 0, 100)
+        for iter.Valid() </span><span class="cov8" title="1">{
+                keys = append(keys, iter.Key())
+                // get the recorded index information for a block
+                bi := &amp;types.BlockIndex{}
+                _, err := bi.UnmarshalMsg(iter.Value())
+                if err != nil </span><span class="cov0" title="0">{
+                        panic(err)</span>
+                }
+                <span class="cov8" title="1">fmt.Printf("Now delete key %v\n%#v\n", iter.Key(), bi)
+                // now prune in-memory index and hpfile
+                db.pruneBlock(bi)
+                iter.Next()</span>
+        }
+        // remove the recorded index information from metadb
+        <span class="cov8" title="1">db.metadb.OpenNewBatch()
+        for _, key := range keys </span><span class="cov8" title="1">{
+                db.metadb.CurrBatch().Delete(key)
+        }</span>
+        <span class="cov8" title="1">db.metadb.CloseOldBatch()</span>
+}
+
+func (db *MoDB) pruneBlock(bi *types.BlockIndex) <span class="cov8" title="1">{
+        // Prune the head part of hpfile
+        err := db.hpfile.PruneHead(bi.BeginOffset)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        // Erase the information recorded in 'bi'
+        <span class="cov8" title="1">db.indexer.EraseBlock(bi.Height, bi.BlockHash48)
+        fmt.Printf("EraseBlock %d %#v %v\n", bi.Height, bi.BlockHash48, db.indexer.GetOffsetByBlockHeight(1))
+        for i, hash48 := range bi.TxHash48List </span><span class="cov8" title="1">{
+                id56 := GetId56(bi.Height, i)
+                fmt.Printf("EraseTx %d-%d %#v\n", bi.Height, i, hash48)
+                db.indexer.EraseTx(id56, hash48)
+        }</span>
+        <span class="cov8" title="1">for _, hash48 := range bi.AddrHashes </span><span class="cov8" title="1">{
+                db.indexer.EraseAddr2Log(hash48, bi.Height)
+        }</span>
+        <span class="cov8" title="1">for _, hash48 := range bi.TopicHashes </span><span class="cov8" title="1">{
+                db.indexer.EraseTopic2Log(hash48, bi.Height)
+        }</span>
+}
+
+// fill blkIdx.Topic* and blkIdx.Addr* according to 'blk'
+func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) <span class="cov8" title="1">{
+        addrIndex := make(map[uint64][]uint32)
+        topicIndex := make(map[uint64][]uint32)
+        for i, tx := range blk.TxList </span><span class="cov8" title="1">{
+                for _, log := range tx.LogList </span><span class="cov8" title="1">{
+                        for _, topic := range log.Topics </span><span class="cov8" title="1">{
+                                topicHash48 := Sum48(db.seed, 0, topic[:])
+                                AppendAtKey(topicIndex, topicHash48, uint32(i))
+                        }</span>
+                        <span class="cov8" title="1">addrHash48 := Sum48(db.seed, 0, log.Address[:])
+                        AppendAtKey(addrIndex, addrHash48, uint32(i))</span>
+                }
+        }
+        // the map 'addrIndex' is recorded into two slices
+        <span class="cov8" title="1">blkIdx.AddrHashes = make([]uint64, 0, len(addrIndex))
+        blkIdx.AddrPosLists = make([][]uint32, 0, len(addrIndex))
+        for addr, posList := range addrIndex </span><span class="cov8" title="1">{
+                blkIdx.AddrHashes = append(blkIdx.AddrHashes, addr)
+                blkIdx.AddrPosLists = append(blkIdx.AddrPosLists, posList)
+        }</span>
+        // the map 'topicIndex' is recorded into two slices
+        <span class="cov8" title="1">blkIdx.TopicHashes = make([]uint64, 0, len(topicIndex))
+        blkIdx.TopicPosLists = make([][]uint32, 0, len(topicIndex))
+        for topic, posList := range topicIndex </span><span class="cov8" title="1">{
+                blkIdx.TopicHashes = append(blkIdx.TopicHashes, topic)
+                blkIdx.TopicPosLists = append(blkIdx.TopicPosLists, posList)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+// reload index information from metadb into in-memory indexer
+func (db *MoDB) reloadToIndexer() <span class="cov8" title="1">{
+        // Get an iterator over all recorded blocks' indexes
+        start := []byte{byte('B'), 0, 0, 0, 0}
+        end := []byte{byte('B'), 255, 255, 255, 255}
+        iter := db.metadb.Iterator(start, end)
+        defer iter.Close()
+        for iter.Valid() </span><span class="cov8" title="1">{
+                bi := &amp;types.BlockIndex{}
+                _, err := bi.UnmarshalMsg(iter.Value())
+                if err != nil </span><span class="cov0" title="0">{
+                        panic(err)</span>
+                }
+                <span class="cov8" title="1">db.reloadBlockToIndexer(bi)
+                iter.Next()</span>
+        }
+}
+
+// reload one block's index information into in-memory indexer
+func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) <span class="cov8" title="1">{
+        fmt.Printf("BlockIndex: %#v\n", blkIdx)
+        db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, blkIdx.BeginOffset)
+        for i, txHash48 := range blkIdx.TxHash48List </span><span class="cov8" title="1">{
+                id56 := GetId56(blkIdx.Height, i)
+                db.indexer.AddTx(id56, txHash48, blkIdx.TxPosList[i])
+        }</span>
+        <span class="cov8" title="1">for i, addrHash48 := range blkIdx.AddrHashes </span><span class="cov8" title="1">{
+                db.indexer.AddAddr2Log(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
+        }</span>
+        <span class="cov8" title="1">for i, topicHash48 := range blkIdx.TopicHashes </span><span class="cov8" title="1">{
+                db.indexer.AddTopic2Log(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
+        }</span>
+}
+
+// read at offset40*32 to fetch data out
+func (db *MoDB) readInFile(offset40 int64) []byte <span class="cov8" title="1">{
+        // read the length out
+        var buf [4]byte
+        offset := GetRealOffset(offset40*32, db.hpfile.Size())
+        fmt.Printf("Now We Read at %d\n", offset)
+        err := db.hpfile.ReadAt(buf[:], offset, false)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">size := binary.LittleEndian.Uint32(buf[:])
+        // read the payload out
+        bz := make([]byte, int(size)+4)
+        err = db.hpfile.ReadAt(bz, offset, false)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+        <span class="cov8" title="1">return bz[4:]</span>
+}
+
+// given a block's height, return serialized information.
+func (db *MoDB) GetBlockByHeight(height int64) []byte <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        offset40 := db.indexer.GetOffsetByBlockHeight(uint32(height))
+        fmt.Printf("Fuck %d %d\n", height, offset40)
+        if offset40 &lt; 0 </span><span class="cov8" title="1">{
+                fmt.Printf("Fuck return nil %d %d\n", height, offset40)
+                return nil
+        }</span>
+        <span class="cov8" title="1">return db.readInFile(offset40)</span>
+}
+
+// given a transaction's height+index, return serialized information.
+func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        id56 := GetId56(uint32(height), index)
+        offset40 := db.indexer.GetOffsetByTxID(id56)
+        if offset40 &lt; 0 </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">return db.readInFile(offset40)</span>
+}
+
+// given a block's hash, feed possibly-correct serialized information to collectResult; if
+// collectResult confirms the information is correct by returning true, this function stops loop.
+func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for extraSeed := uint32(0); extraSeed &lt; MAX_TRY; extraSeed++ </span><span class="cov8" title="1">{
+                hash48 := Sum48(db.seed, extraSeed, hash[:])
+                offset40 := db.indexer.GetOffsetByBlockHash(hash48)
+                fmt.Printf("WHY hash48 %x offset40 %d\n", hash48, offset40)
+                if offset40 &lt; 0 </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">bz := db.readInFile(offset40)
+                fmt.Printf("WHY offset40 %d %s\n", offset40, string(bz))
+                if collectResult(bz) </span><span class="cov8" title="1">{
+                        return
+                }</span>
+        }
+}
+
+// given a block's hash, feed possibly-correct serialized information to collectResult; if
+// collectResult confirms the information is correct by returning true, this function stops loop.
+func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        for extraSeed := uint32(0); extraSeed &lt; MAX_TRY; extraSeed++ </span><span class="cov8" title="1">{
+                hash48 := Sum48(db.seed, extraSeed, hash[:])
+                offset40 := db.indexer.GetOffsetByTxHash(hash48)
+                if offset40 &lt; 0 </span><span class="cov8" title="1">{
+                        break</span>
+                }
+                <span class="cov8" title="1">bz := db.readInFile(offset40)
+                if collectResult(bz) </span><span class="cov8" title="1">{
+                        return
+                }</span>
+        }
+}
+
+// given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
+// whether it wants more data.
+func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) <span class="cov8" title="1">{
+        db.mtx.RLock()
+        defer db.mtx.RUnlock()
+        addrHash48 := uint64(1) &lt;&lt; 63 // an invalid value
+        if addr != nil </span><span class="cov8" title="1">{
+                addrHash48 = Sum48(db.seed, 0, (*addr)[:])
+        }</span>
+        <span class="cov8" title="1">topicHash48List := make([]uint64, len(topics))
+        for i, hash := range topics </span><span class="cov8" title="1">{
+                topicHash48List[i] = Sum48(db.seed, 0, hash[:])
+        }</span>
+        <span class="cov8" title="1">offList := db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
+        for _, offset40 := range offList </span><span class="cov8" title="1">{
+                bz := db.readInFile(offset40)
+                if needMore := fn(bz); !needMore </span><span class="cov8" title="1">{
+                        break</span>
+                }
+        }
+}
+
+// ===================================
+
+// returns the short hash of the key
+func Sum48(seed [8]byte, extraSeed uint32, key []byte) uint64 <span class="cov8" title="1">{
+        var buf [4]byte
+        binary.LittleEndian.PutUint32(buf[:], extraSeed)
+        digest := xxhash.New()
+        digest.Write(seed[:])
+        digest.Write(buf[:])
+        digest.Write(key)
+        return (digest.Sum64() &lt;&lt; 16) &gt;&gt; 16
+}</span>
+
+// append value at a slice at 'key'. If the slice does not exist, create it.
+func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) <span class="cov8" title="1">{
+        _, ok := m[key]
+        if !ok </span><span class="cov8" title="1">{
+                m[key] = make([]uint32, 0, 10)
+        }</span>
+        <span class="cov8" title="1">m[key] = append(m[key], value)</span>
+}
+
+// make sure (length+n)%32 == 0
+func Padding32(length int) (n int) <span class="cov8" title="1">{
+        mod := length % 32
+        if mod != 0 </span><span class="cov8" title="1">{
+                n = 32 - mod
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+// offset40 can represent 32TB range, but a hpfile's virual size can be larger than it.
+// calculate a real offset from offset40 which pointing to a valid position in hpfile.
+func GetRealOffset(offset, size int64) int64 <span class="cov8" title="1">{
+        unit := int64(32) &lt;&lt; 40 // 32 tera bytes
+        n := size / unit
+        if size % unit == 0 </span><span class="cov8" title="1">{
+                n--
+        }</span>
+        <span class="cov8" title="1">offset += n * unit
+        if offset &gt; size </span><span class="cov8" title="1">{
+                offset -= unit
+        }</span>
+        <span class="cov8" title="1">return offset</span>
+}
+
+func GetId56(height uint32, i int) uint64 <span class="cov8" title="1">{
+        return (uint64(height) &lt;&lt; 24) | uint64(i)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

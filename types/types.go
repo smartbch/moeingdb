@@ -66,9 +66,9 @@ type IndexEntry struct {
 type BlockIndex struct {
 	Height       uint32   `msg:"ht"`
 	BlockHash48  uint64   `msg:"bh"`
-	TxHash48List []uint64 `msg:"tx"`
+	TxHash48List []uint64 `msg:"txl"`
 	BeginOffset  int64    `msg:"bo"`
-	TxPosList    []int64  `msg:"to"`
+	TxPosList    []int64  `msg:"tol"`
 
 	AddrHashes    []uint64   `msg:"ai"`
 	AddrPosLists  [][]uint32 `msg:"ap"`
