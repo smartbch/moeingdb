@@ -22,8 +22,6 @@ import (
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
-const MAX_TRY = uint32(1000)
-
 type MoDB struct {
 	wg      sync.WaitGroup
 	mtx     sync.RWMutex
@@ -174,27 +172,15 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 
 	offset40 := db.appendToFile(blk.BlockInfo)
 	blkIdx.BeginOffset = offset40
-	// retry until we find an available hash48
-	for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
-		hash48 := Sum48(db.seed, extraSeed, blk.BlockHash[:])
-		if ok := db.indexer.AddBlock(blkIdx.Height, hash48, offset40); ok {
-			blkIdx.BlockHash48 = hash48
-			break
-		}
-	}
+	blkIdx.BlockHash48 = Sum48(db.seed, blk.BlockHash[:])
+	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, offset40)
 
 	for i, tx := range blk.TxList {
 		offset40 = db.appendToFile(tx.Content)
 		blkIdx.TxPosList[i] = offset40
-		// retry until we find an available hash48
-		for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
-			hash48 := Sum48(db.seed, extraSeed, tx.HashId[:])
-			id56 := GetId56(blkIdx.Height, i)
-			if ok := db.indexer.AddTx(id56, hash48, offset40); ok {
-				blkIdx.TxHash48List[i] = hash48
-				break
-			}
-		}
+		blkIdx.TxHash48List[i] = Sum48(db.seed, tx.HashId[:])
+		id56 := GetId56(blkIdx.Height, i)
+		db.indexer.AddTx(id56, blkIdx.TxHash48List[i], offset40)
 	}
 	for i, addrHash48 := range blkIdx.AddrHashes {
 		db.indexer.AddAddr2Log(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
@@ -273,7 +259,7 @@ func (db *MoDB) pruneBlock(bi *types.BlockIndex) {
 	db.indexer.EraseBlock(bi.Height, bi.BlockHash48)
 	for i, hash48 := range bi.TxHash48List {
 		id56 := GetId56(bi.Height, i)
-		db.indexer.EraseTx(id56, hash48)
+		db.indexer.EraseTx(id56, hash48, bi.TxPosList[i])
 	}
 	for _, hash48 := range bi.AddrHashes {
 		db.indexer.EraseAddr2Log(hash48, bi.Height)
@@ -290,10 +276,10 @@ func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
 	for i, tx := range blk.TxList {
 		for _, log := range tx.LogList {
 			for _, topic := range log.Topics {
-				topicHash48 := Sum48(db.seed, 0, topic[:])
+				topicHash48 := Sum48(db.seed, topic[:])
 				AppendAtKey(topicIndex, topicHash48, uint32(i))
 			}
-			addrHash48 := Sum48(db.seed, 0, log.Address[:])
+			addrHash48 := Sum48(db.seed, log.Address[:])
 			AppendAtKey(addrIndex, addrHash48, uint32(i))
 		}
 	}
@@ -394,12 +380,8 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
-		hash48 := Sum48(db.seed, extraSeed, hash[:])
-		offset40 := db.indexer.GetOffsetByBlockHash(hash48)
-		if offset40 < 0 {
-			break
-		}
+	hash48 := Sum48(db.seed, hash[:])
+	for _, offset40 := range db.indexer.GetOffsetsByBlockHash(hash48) {
 		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
@@ -412,12 +394,8 @@ func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for extraSeed := uint32(0); extraSeed < MAX_TRY; extraSeed++ {
-		hash48 := Sum48(db.seed, extraSeed, hash[:])
-		offset40 := db.indexer.GetOffsetByTxHash(hash48)
-		if offset40 < 0 {
-			break
-		}
+	hash48 := Sum48(db.seed, hash[:])
+	for _, offset40 := range db.indexer.GetOffsetsByTxHash(hash48) {
 		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
@@ -432,11 +410,11 @@ func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHei
 	defer db.mtx.RUnlock()
 	addrHash48 := uint64(1) << 63 // an invalid value
 	if addr != nil {
-		addrHash48 = Sum48(db.seed, 0, (*addr)[:])
+		addrHash48 = Sum48(db.seed, (*addr)[:])
 	}
 	topicHash48List := make([]uint64, len(topics))
 	for i, hash := range topics {
-		topicHash48List[i] = Sum48(db.seed, 0, hash[:])
+		topicHash48List[i] = Sum48(db.seed, hash[:])
 	}
 	offList := db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
 	for _, offset40 := range offList {
@@ -450,12 +428,9 @@ func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHei
 // ===================================
 
 // returns the short hash of the key
-func Sum48(seed [8]byte, extraSeed uint32, key []byte) uint64 {
-	var buf [4]byte
-	binary.LittleEndian.PutUint32(buf[:], extraSeed)
+func Sum48(seed [8]byte, key []byte) uint64 {
 	digest := xxhash.New()
 	digest.Write(seed[:])
-	digest.Write(buf[:])
 	digest.Write(key)
 	return (digest.Sum64() << 16) >> 16
 }

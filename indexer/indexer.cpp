@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include "bigmap.h"
+#include "bigmultimap.h"
 #include "indexer.h"
 
 typedef std::vector<bits24> bits24_vec;
@@ -50,11 +51,11 @@ struct bits24_list {
 // the leaf nodes of btree_map (which are also called as target nodes)
 // positions are actually the value for block heights, but in blk_htpos2ptr, we
 // take them as part of keys, just to avoid padding bytes.
-typedef bigmap<(1<<8),  uint64_t, bits24_vec*> blk_htpos2ptr;
-typedef bigmap<(1<<16), uint32_t, uint32_t>    blk_hash2ht;
-typedef bigmap<(1<<16), bits40,   bits40>      tx_id2pos;
-typedef bigmap<(1<<16), bits32,   bits40>      tx_hash2pos;
-typedef bigmap<(1<<16), uint64_t, uint64_t>    log_map;
+typedef bigmap<(1<<8),  uint64_t, bits24_vec*>   blk_htpos2ptr;
+typedef bigmultimap<(1<<16), uint32_t, uint32_t> blk_hash2ht;
+typedef bigmap<(1<<16),   bits40, bits40>        tx_id2pos;
+typedef bigmultimap<(1<<16), bits32, bits40>     tx_hash2pos;
+typedef bigmap<(1<<16), uint64_t, uint64_t>      log_map;
 
 class indexer {
 	blk_htpos2ptr blk_htpos2ptr_map;
@@ -72,15 +73,15 @@ public:
 	indexer(indexer&& other) = delete;
 	indexer& operator=(indexer&& other) = delete;
 
-	bool add_block(uint32_t height, uint64_t hash48, int64_t offset40);
+	void add_block(uint32_t height, uint64_t hash48, int64_t offset40);
 	void erase_block(uint32_t height, uint64_t hash48);
 	int64_t offset_by_block_height(uint32_t height);
 	bits24_vec* get_vec_at_height(uint32_t height, bool create_if_null);
-	int64_t offset_by_block_hash(uint64_t hash48);
-	bool add_tx(uint64_t id56, uint64_t hash48, int64_t offset40);
-	void erase_tx(uint64_t id56, uint64_t hash48);
+	i64_list offsets_by_block_hash(uint64_t hash48);
+	void add_tx(uint64_t id56, uint64_t hash48, int64_t offset40);
+	void erase_tx(uint64_t id56, uint64_t hash48, int64_t offset40);
 	int64_t offset_by_tx_id(uint64_t id56);
-	int64_t offset_by_tx_hash(uint64_t hash48);
+	i64_list offsets_by_tx_hash(uint64_t hash48);
 
 	void add_to_log_map(log_map& m, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
 
@@ -174,19 +175,14 @@ public:
 };
 
 // add a new block's information, return whether this 'hash48' is available to use
-bool indexer::add_block(uint32_t height, uint64_t hash48, int64_t offset40) {
+void indexer::add_block(uint32_t height, uint64_t hash48, int64_t offset40) {
 	auto vec = get_vec_at_height(height-1, false);
 	//shrink the previous block's bits24_vec to save memory
 	if(vec != nullptr) vec->shrink_to_fit();
-	//check if hash48 has been used before
-	bool ok;
-	auto it = blk_hash2ht_map.seek(hash48>>32, uint32_t(hash48), &ok);
-	if(ok && it.key() == uint32_t(hash48)) return false; //hash48 conflict
 	// concat the low 3 bytes of height and 5 bytes of offset40 into ht3off5
 	uint64_t ht3off5 = (uint64_t(height)<<40) | ((uint64_t(offset40)<<24)>>24);
 	blk_htpos2ptr_map.insert(height>>24, ht3off5, nullptr);
 	blk_hash2ht_map.insert(hash48>>32, uint32_t(hash48), height);
-	return true;
 }
 
 // given a block's height, return the corresponding iterator
@@ -206,7 +202,7 @@ void indexer::erase_block(uint32_t height, uint64_t hash48) {
 		delete it->second; // free the bits24_vec
 		blk_htpos2ptr_map.erase(height>>24, it->first);
 	}
-	blk_hash2ht_map.erase(hash48>>32, uint32_t(hash48));
+	blk_hash2ht_map.erase(hash48>>32, uint32_t(hash48), height);
 }
 
 // given a block's height, return its offset
@@ -234,30 +230,35 @@ bits24_vec* indexer::get_vec_at_height(uint32_t height, bool create_if_null) {
 	return it->second;
 }
 
-// given a block's hash48, return its offset
-int64_t indexer::offset_by_block_hash(uint64_t hash48) {
-	bool ok;
-	uint32_t height = blk_hash2ht_map.get(hash48>>32, uint32_t(hash48), &ok);
-	if(!ok) return -1;
-	return offset_by_block_height(height);
+// given a block's hash48, return its possible offsets
+i64_list indexer::offsets_by_block_hash(uint64_t hash48) {
+	auto vec = blk_hash2ht_map.get(hash48>>32, uint32_t(hash48));
+	if(vec.size() == 0) {
+		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
+	} else if(vec.size() == 1) {
+		auto off = offset_by_block_height(vec[0]);
+		return i64_list{.vec_ptr=size_t(off), .data=nullptr, .size=1};
+	}
+	auto i64_vec = new std::vector<int64_t>;
+	for(int i = 0; i < vec.size(); i++) {
+		i64_vec->push_back(offset_by_block_height(vec[i]));
+	}
+	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
 }
 
 // A transaction's id has 56 bits: 32 bits height + 24 bits in-block index
 // add a new transaction's information, return whether hash48 is available to use
-bool indexer::add_tx(uint64_t id56, uint64_t hash48, int64_t offset40) {
-	bool ok;
-	tx_hash2pos_map.get(hash48>>32, bits32::from_uint64(hash48), &ok);
-	if(ok) return false; //hash48 conflict
+void indexer::add_tx(uint64_t id56, uint64_t hash48, int64_t offset40) {
 	auto off40 = bits40::from_int64(offset40);
 	tx_id2pos_map.insert(id56>>40, bits40::from_uint64(id56), off40);
 	tx_hash2pos_map.insert(hash48>>32, bits32::from_uint64(hash48), off40);
-	return true;
 }
 
 // erase a old transaction's information
-void indexer::erase_tx(uint64_t id56, uint64_t hash48) {
+void indexer::erase_tx(uint64_t id56, uint64_t hash48, int64_t offset40) {
+	auto off40 = bits40::from_int64(offset40);
 	tx_id2pos_map.erase(id56>>40, bits40::from_uint64(id56));
-	tx_hash2pos_map.erase(hash48>>32, bits32::from_uint64(hash48));
+	tx_hash2pos_map.erase(hash48>>32, bits32::from_uint64(hash48), off40);
 }
 
 // given a transaction's 56-bit id, return its offset
@@ -269,11 +270,18 @@ int64_t indexer::offset_by_tx_id(uint64_t id56) {
 }
 
 // given a transaction's hash48, return its offset
-int64_t indexer::offset_by_tx_hash(uint64_t hash48) {
-	bool ok;
-	auto off = tx_hash2pos_map.get(hash48>>32, bits32::from_uint64(hash48), &ok);
-	if(!ok) return -1;
-	return off.to_int64();
+i64_list indexer::offsets_by_tx_hash(uint64_t hash48) {
+	auto vec = tx_hash2pos_map.get(hash48>>32, bits32::from_uint64(hash48));
+	if(vec.size() == 0) {
+		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
+	} else if(vec.size() == 1) {
+		return i64_list{.vec_ptr=size_t(vec[0].to_uint64()), .data=nullptr, .size=1};
+	}
+	auto i64_vec = new std::vector<int64_t>;
+	for(int i = 0; i < vec.size(); i++) {
+		i64_vec->push_back(vec[i].to_int64());
+	}
+	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
 }
 
 // given a log_map m, add new information into it
@@ -324,7 +332,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 		iters.push_back(topic_iterator(q.topic_hash[i], q.start_height, q.end_height));
 	}
 	if(iters.size() == 0) {
-		return i64_list{.vec_ptr=nullptr, .data=nullptr, .size=0};
+		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
 	}
 	while(iters_all_valid(iters)) {
 		for(int i=1; i<iters.size(); i++) {
@@ -342,7 +350,10 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 			iters[0].next();
 		}
 	}
-	return i64_list{.vec_ptr=i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
+	if(i64_vec->size() == 1) {
+		return i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
+	}
+	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
 }
 
 // =============================================================================
@@ -355,8 +366,8 @@ void indexer_destroy(size_t ptr) {
 	delete (indexer*)ptr;
 }
 
-bool indexer_add_block(size_t ptr, uint32_t height, uint64_t hash48, int64_t offset40) {
-	return ((indexer*)ptr)->add_block(height, hash48, offset40);
+void indexer_add_block(size_t ptr, uint32_t height, uint64_t hash48, int64_t offset40) {
+	((indexer*)ptr)->add_block(height, hash48, offset40);
 }
 
 void indexer_erase_block(size_t ptr, uint32_t height, uint64_t hash48) {
@@ -367,24 +378,24 @@ int64_t indexer_offset_by_block_height(size_t ptr, uint32_t height) {
 	return ((indexer*)ptr)->offset_by_block_height(height);
 }
 
-int64_t indexer_offset_by_block_hash(size_t ptr, uint64_t hash48) {
-	return ((indexer*)ptr)->offset_by_block_hash(hash48);
+i64_list indexer_offsets_by_block_hash(size_t ptr, uint64_t hash48) {
+	return ((indexer*)ptr)->offsets_by_block_hash(hash48);
 }
 
-bool indexer_add_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset40) {
-	return ((indexer*)ptr)->add_tx(id56, hash48, offset40);
+void indexer_add_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset40) {
+	((indexer*)ptr)->add_tx(id56, hash48, offset40);
 }
 
-void indexer_erase_tx(size_t ptr, uint64_t id56, uint64_t hash48) {
-	((indexer*)ptr)->erase_tx(id56, hash48);
+void indexer_erase_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset40) {
+	((indexer*)ptr)->erase_tx(id56, hash48, offset40);
 }
 
 int64_t indexer_offset_by_tx_id(size_t ptr, uint64_t id56) {
 	return ((indexer*)ptr)->offset_by_tx_id(id56);
 }
 
-int64_t indexer_offset_by_tx_hash(size_t ptr, uint64_t hash48) {
-	return ((indexer*)ptr)->offset_by_tx_hash(hash48);
+i64_list indexer_offsets_by_tx_hash(size_t ptr, uint64_t hash48) {
+	return ((indexer*)ptr)->offsets_by_tx_hash(hash48);
 }
 
 void indexer_add_addr2log(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
@@ -408,5 +419,19 @@ i64_list indexer_query_tx_offsets(size_t ptr, tx_offsets_query q) {
 }
 
 void i64_list_destroy(i64_list l) {
-	delete (std::vector<int64_t>*)l.vec_ptr;
+	if(l.size>=2) {
+		delete (std::vector<int64_t>*)l.vec_ptr;
+	}
 }
+
+size_t get(const i64_list& l, int i) {
+	if(l.size==0) {
+		return ~size_t(0);
+	} else if(l.size==1) {
+		return l.vec_ptr;
+	}
+	auto ptr = (std::vector<int64_t>*)l.vec_ptr;
+	return ptr->at(i);
+}
+
+

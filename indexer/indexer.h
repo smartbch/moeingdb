@@ -10,9 +10,9 @@ extern "C" {
 	// a list of 64-bit integer, each of which contains a 40-bit file offset
 	// at these file offsets, you can read out transactions and blocks
 	struct i64_list {
-		void* vec_ptr; //its real type is std::vector<int64>*
+		size_t   vec_ptr; //its real type is std::vector<int64>*
 		int64_t* data; //please make sure data == vec_ptr->data()
-		size_t size; //please make sure size == vec_ptr->size()
+		size_t   size; //please make sure size == vec_ptr->size()
 	};
 	// this function deletes l.vec_ptr
 	void i64_list_destroy(struct i64_list l);
@@ -35,16 +35,16 @@ extern "C" {
 	void indexer_destroy(size_t);
 
 	// add/erase indexes for blocks and transactions
-	bool indexer_add_block(size_t ptr, uint32_t height, uint64_t hash48, int64_t offset40);
+	void indexer_add_block(size_t ptr, uint32_t height, uint64_t hash48, int64_t offset40);
 	void indexer_erase_block(size_t ptr, uint32_t height, uint64_t hash48);
-	bool indexer_add_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset40);
-	void indexer_erase_tx(size_t ptr, uint64_t id56, uint64_t hash48);
+	void indexer_add_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset40);
+	void indexer_erase_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset40);
 
 	// query file offset for a block/transaction
 	int64_t indexer_offset_by_block_height(size_t ptr, uint32_t height);
-	int64_t indexer_offset_by_block_hash(size_t ptr, uint64_t hash48);
+	struct i64_list indexer_offsets_by_block_hash(size_t ptr, uint64_t hash48);
 	int64_t indexer_offset_by_tx_id(size_t ptr, uint64_t id56);
-	int64_t indexer_offset_by_tx_hash(size_t ptr, uint64_t hash48);
+	struct i64_list indexer_offsets_by_tx_hash(size_t ptr, uint64_t hash48);
 
 	// add/erase indexes for logs
 	void indexer_add_addr2log(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);

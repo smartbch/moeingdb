@@ -28,16 +28,22 @@ TEST_CASE( "block is tested", "[block]" ) {
 	indexer idx;
 	idx.add_block(1, 0x123456789ABC, 0xF12345678F);
 	idx.add_block(2, 0xFF3456789AB0, 0xE12345678E);
-	REQUIRE(idx.offset_by_block_hash(0x123456789ABC) == 0xF12345678F);
-	REQUIRE(idx.offset_by_block_hash(0xFF3456789AB0) == 0xE12345678E);
-	REQUIRE(idx.offset_by_block_hash(0x123456789AB0) == -1);
-	REQUIRE(idx.offset_by_block_hash(0x0) == -1);
+	auto v = idx.offsets_by_block_hash(0x123456789ABC);
+	REQUIRE(v.size == 1);
+	REQUIRE(get(v,0) == 0xF12345678F);
+	v = idx.offsets_by_block_hash(0xFF3456789AB0);
+	REQUIRE(get(v,0) == 0xE12345678E);
+	v = idx.offsets_by_block_hash(0x123456789AB0);
+	REQUIRE(v.size == 0);
+	v = idx.offsets_by_block_hash(0x0);
+	REQUIRE(v.size == 0);
 	REQUIRE(idx.offset_by_block_height(1) == 0xF12345678F);
 	REQUIRE(idx.offset_by_block_height(2) == 0xE12345678E);
 	REQUIRE(idx.offset_by_block_height(3) == -1);
 	REQUIRE(idx.offset_by_block_height(0xFFFFFFFF) == -1);
 	idx.erase_block(2, 0xFF3456789AB0);
-	REQUIRE(idx.offset_by_block_hash(0xFF3456789AB0) == -1);
+	v = idx.offsets_by_block_hash(0xFF3456789AB0);
+	REQUIRE(v.size == 0);
 	REQUIRE(idx.offset_by_block_height(2) == -1);
 }
 
@@ -46,29 +52,20 @@ TEST_CASE( "tx is tested", "[tx]" ) {
 	idx.add_tx(0xDCBA9876543210, 0x123456789ABC, 0xF12345678F);
 	idx.add_tx(0xEDCBA987654321, 0x923456789AB9, 0xE12345678E);
 	REQUIRE(idx.offset_by_tx_id(0xDCBA9876543210) == 0xF12345678F);
-	REQUIRE(idx.offset_by_tx_hash(0x123456789ABC) == 0xF12345678F);
+	auto v = idx.offsets_by_tx_hash(0x123456789ABC);
+	REQUIRE(get(v,0) == 0xF12345678F);
 	REQUIRE(idx.offset_by_tx_id(0x0) == -1);
 	REQUIRE(idx.offset_by_tx_id(0xDCBA9876543000) == -1);
-	REQUIRE(idx.offset_by_tx_hash(0x123456789000) == -1);
-	REQUIRE(idx.offset_by_tx_hash(0x12) == -1);
+	REQUIRE(idx.offsets_by_tx_hash(0x123456789000).size == 0);
+	REQUIRE(idx.offsets_by_tx_hash(0x12).size == 0);
 	REQUIRE(idx.offset_by_tx_id(0xEDCBA987654321) == 0xE12345678E);
-	REQUIRE(idx.offset_by_tx_hash(0x923456789AB9) == 0xE12345678E);
-	idx.erase_tx(0xEDCBA987654321, 0x923456789AB9);
+	v = idx.offsets_by_tx_hash(0x923456789AB9);
+	REQUIRE(get(v,0) == 0xE12345678E);
+	idx.erase_tx(0xEDCBA987654321, 0x923456789AB9, 0xE12345678E);
 	REQUIRE(idx.offset_by_tx_id(0xEDCBA987654321) == -1);
-	REQUIRE(idx.offset_by_tx_hash(0x923456789AB9) == -1);
+	REQUIRE(idx.offsets_by_tx_hash(0x923456789AB9).size == 0);
 }
 
-//	void add_addr2log(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
-//	void erase_addr2log(uint64_t hash48, uint32_t height) {
-//	void add_topic2log(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
-//	void erase_topic2log(uint64_t hash48, uint32_t height) {
-//	class tx_iterator {
-//		bool valid() {
-//		uint64_t value() {//returns id56: 4 bytes height and 3 bytes offset
-//		void next() {
-//	tx_iterator addr_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
-//	tx_iterator topic_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
-//	i64_list query_tx_offsets(tx_offsets_query q);
 
 TEST_CASE( "log is tested", "[log]" ) {
 	indexer idx;

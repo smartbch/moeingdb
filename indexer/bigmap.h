@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 #include <iostream>
 #include "cpp-btree-1.0.1/btree_map.h"
@@ -35,6 +36,12 @@ struct bits_n {
 	}
 	bool operator<(const bits_n& other) const {
 		return this->to_uint64() < other.to_uint64();
+	}
+	bool operator==(const bits_n& other) const {
+		return this->to_uint64() == other.to_uint64();
+	}
+	bool operator!=(const bits_n& other) const {
+		return this->to_uint64() != other.to_uint64();
 	}
 };
 
