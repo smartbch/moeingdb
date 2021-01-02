@@ -69,7 +69,7 @@ class indexer {
 public:
 	indexer() {};
 	~indexer() {
-		auto it = blk_htpos2ptr_map.get_iterator(0, 0, blk_htpos2ptr_map.get_slot_count()-1, ~uint64_t(0));
+		auto it = blk_htpos2ptr_map.get_iterator(0, 0);
 		while(it.valid()) {
 			delete it.value();
 			it.next();
@@ -113,6 +113,8 @@ public:
 	class tx_iterator {
 		bool        _valid;
 		indexer*    _parent; 
+		int         _end_idx;
+		uint64_t    _end_key;
 		bits24_list _curr_list; //current block's bits24_list
 		int         _curr_list_idx; //pointing to an element in _curr_list.data
 		typename log_map::iterator _iter;
@@ -154,6 +156,11 @@ public:
 			if(_curr_list_idx == _curr_list.size) {
 				_iter.next(); //to the next height
 				if(!_iter.valid()) {
+					_valid = false;
+					return;
+				}
+				if(_iter.curr_idx() > _end_idx || (_iter.curr_idx() == _end_idx && _iter.key() >= _end_key)) {
+					_valid = false;
 					return;
 				}
 				load_list();
@@ -166,8 +173,9 @@ private:
 		tx_iterator it;
 		it._parent = this;
 		it._valid = true;
-		it._iter = m.get_iterator(hash48>>32, (hash48<<32)|uint64_t(start_height),
-		                          hash48>>32, (hash48<<32)|uint64_t(end_height));
+		it._end_idx = hash48>>32;
+		it._end_key = (hash48<<32)|uint64_t(end_height);
+		it._iter = m.get_iterator(hash48>>32, (hash48<<32)|uint64_t(start_height));
 		it.load_list();
 		return it;
 	}

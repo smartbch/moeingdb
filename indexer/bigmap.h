@@ -144,8 +144,6 @@ public:
 	class iterator {
 		bigmap* _map; 
 		int _curr_idx;
-		int _end_idx; // please make sure _curr_idx <= _end_idx
-		key_type _end_key; // stop iteration when _iter.key() == _end_key
 		typename basic_map::iterator _iter; // an iterator to _map._map_arr[_curr_idx]
 		bool _valid; // this iterator is still valid. once it turns false, it'll never turn true.
 		void handle_slot_crossing() {
@@ -153,7 +151,7 @@ public:
 				return; // no need for slot crossing
 			}
 			_valid = false;
-			for(_curr_idx++; _curr_idx <= _end_idx; _curr_idx++) {
+			for(_curr_idx++; _curr_idx < slot_count; _curr_idx++) {
 				if(_map->_map_arr[_curr_idx] == nullptr) continue; //skip null slot
 				_iter = _map->_map_arr[_curr_idx]->begin();
 				_valid = _iter != _map->_map_arr[_curr_idx]->end(); //stop loop when _valid==true
@@ -161,10 +159,10 @@ public:
 			}
 		}
 		void check_ending() {
-			if(_curr_idx > _end_idx) {
+			if(_curr_idx >= slot_count) {
 				_valid = false;
-			} else if(_curr_idx == _end_idx &&
-				(_iter.key() >= _end_key || _iter == _map->_map_arr[_curr_idx]->end())) {
+			} else if(_curr_idx == slot_count-1 &&
+				_iter == _map->_map_arr[_curr_idx]->end()) {
 				_valid = false;
 			}
 		}
@@ -191,17 +189,14 @@ public:
 		}
 	};
 
-	// Return a forward iterator. It starts at (start_idx,start_key) and ends 
-	// at (end_idx, end_key). The end point is not included.
-	iterator get_iterator(int start_idx, key_type start_key, int end_idx, key_type end_key) {
+	// Return a forward iterator. It starts at [start_idx,start_key)
+	iterator get_iterator(int start_idx, key_type start_key) {
 		class iterator iter;
 		iter._valid = true;
-		iter._end_idx = end_idx;
-		iter._end_key = end_key;
 		iter._map = this;
 		iter._curr_idx = start_idx;
 		if(_map_arr[iter._curr_idx] == nullptr) {// skip empty slot
-			for(; iter._curr_idx <= end_idx; iter._curr_idx++) {
+			for(; iter._curr_idx < slot_count; iter._curr_idx++) {
 				if(_map_arr[iter._curr_idx] != nullptr) break;
 			}
 			if(_map_arr[iter._curr_idx] == nullptr) {
