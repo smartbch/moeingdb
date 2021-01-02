@@ -84,6 +84,9 @@ public:
 	bigmap(bigmap&& other) = delete;
 	bigmap& operator=(bigmap&& other) = delete;
 
+	int get_slot_count() {
+		return slot_count;
+	}
 	// insert (k,v) at the basic_map in the 'idx'-th slot
 	void insert(uint64_t idx, key_type k, value_type v) {
 		assert(idx < slot_count);

@@ -68,6 +68,13 @@ class indexer {
 	typename blk_htpos2ptr::basic_map::iterator get_iter_at_height(uint32_t height, bool* ok);
 public:
 	indexer() {};
+	~indexer() {
+		auto it = blk_htpos2ptr_map.get_iterator(0, 0, blk_htpos2ptr_map.get_slot_count()-1, ~uint64_t(0));
+		while(it.valid()) {
+			delete it.value();
+			it.next();
+		}
+	};
 	indexer(const indexer& other) = delete;
 	indexer& operator=(const indexer& other) = delete;
 	indexer(indexer&& other) = delete;
@@ -181,7 +188,13 @@ void indexer::add_block(uint32_t height, uint64_t hash48, int64_t offset40) {
 	if(vec != nullptr) vec->shrink_to_fit();
 	// concat the low 3 bytes of height and 5 bytes of offset40 into ht3off5
 	uint64_t ht3off5 = (uint64_t(height)<<40) | ((uint64_t(offset40)<<24)>>24);
-	blk_htpos2ptr_map.insert(height>>24, ht3off5, nullptr);
+	bool ok;
+	auto it = get_iter_at_height(height, &ok);
+	if(ok && it->second!=nullptr) {
+		it->second->clear();
+	} else {
+		blk_htpos2ptr_map.insert(height>>24, ht3off5, nullptr);
+	}
 	blk_hash2ht_map.insert(hash48>>32, uint32_t(hash48), height);
 }
 
@@ -200,7 +213,7 @@ void indexer::erase_block(uint32_t height, uint64_t hash48) {
 	auto it = get_iter_at_height(height, &ok);
 	if(ok) {
 		delete it->second; // free the bits24_vec
-		blk_htpos2ptr_map.erase(height>>24, it->first);
+		blk_htpos2ptr_map.erase(height>>24, it->first); //TODO
 	}
 	blk_hash2ht_map.erase(hash48>>32, uint32_t(hash48), height);
 }
