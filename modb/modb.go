@@ -22,9 +22,29 @@ import (
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
+type rwMutex struct {
+	mtx     sync.RWMutex
+	wg      sync.WaitGroup
+}
+func (mtx *rwMutex) lock() {
+	mtx.wg.Add(1)
+	mtx.mtx.Lock()
+	mtx.wg.Done()
+}
+func (mtx *rwMutex) unlock() {
+	mtx.mtx.Unlock()
+}
+func (mtx *rwMutex) rLock() {
+	mtx.wg.Wait()
+	mtx.mtx.RLock()
+}
+func (mtx *rwMutex) rUnlock() {
+	mtx.mtx.RUnlock()
+}
+
 type MoDB struct {
 	wg      sync.WaitGroup
-	mtx     sync.RWMutex
+	mtx     rwMutex
 	path    string
 	metadb  *RocksDB
 	hpfile  *HPFile
@@ -164,9 +184,9 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 	db.fillLogIndex(blk, blkIdx)
 	// Get a write lock before we start updating
-	db.mtx.Lock()
+	db.mtx.lock()
 	defer func() {
-		db.mtx.Unlock()
+		db.mtx.unlock()
 		db.wg.Done()
 	}()
 
@@ -354,8 +374,8 @@ func (db *MoDB) readInFile(offset40 int64) []byte {
 
 // given a block's height, return serialized information.
 func (db *MoDB) GetBlockByHeight(height int64) []byte {
-	db.mtx.RLock()
-	defer db.mtx.RUnlock()
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
 	offset40 := db.indexer.GetOffsetByBlockHeight(uint32(height))
 	if offset40 < 0 {
 		return nil
@@ -365,8 +385,8 @@ func (db *MoDB) GetBlockByHeight(height int64) []byte {
 
 // given a transaction's height+index, return serialized information.
 func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
-	db.mtx.RLock()
-	defer db.mtx.RUnlock()
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
 	id56 := GetId56(uint32(height), index)
 	offset40 := db.indexer.GetOffsetByTxID(id56)
 	if offset40 < 0 {
@@ -378,8 +398,8 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 // given a block's hash, feed possibly-correct serialized information to collectResult; if
 // collectResult confirms the information is correct by returning true, this function stops loop.
 func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
-	db.mtx.RLock()
-	defer db.mtx.RUnlock()
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
 	hash48 := Sum48(db.seed, hash[:])
 	for _, offset40 := range db.indexer.GetOffsetsByBlockHash(hash48) {
 		bz := db.readInFile(offset40)
@@ -392,8 +412,8 @@ func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 // given a block's hash, feed possibly-correct serialized information to collectResult; if
 // collectResult confirms the information is correct by returning true, this function stops loop.
 func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
-	db.mtx.RLock()
-	defer db.mtx.RUnlock()
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
 	hash48 := Sum48(db.seed, hash[:])
 	for _, offset40 := range db.indexer.GetOffsetsByTxHash(hash48) {
 		bz := db.readInFile(offset40)
@@ -406,8 +426,8 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 // given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
 // whether it wants more data.
 func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
-	db.mtx.RLock()
-	defer db.mtx.RUnlock()
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
 	addrHash48 := uint64(1) << 63 // an invalid value
 	if addr != nil {
 		addrHash48 = Sum48(db.seed, (*addr)[:])
