@@ -133,8 +133,8 @@ TEST_CASE( "bits64 is tested", "[bits_n]") {
 TEST_CASE( "my_map is tested", "[bigmap]") {
 	my_map m;
 	bool ok;
-	m.insert(1, 0x12, 0x34);
-	m.insert(1, 0x14, 0x88);
+	m.set(1, 0x12, 0x34);
+	m.set(1, 0x14, 0x88);
 	REQUIRE(m.size() == 2);
 	auto v = m.get(1, 0x12, &ok);
 	REQUIRE(ok == true);
@@ -173,12 +173,12 @@ TEST_CASE( "my_map is tested", "[bigmap]") {
 
 TEST_CASE( "my_map's iterator is tested", "[bigmap]") {
 	my_map m;
-	m.insert(2, 0x12, 0x34);
-	m.insert(2, 0x14, 0x88);
-	m.insert(3, 0x1, 0x1);
+	m.set(2, 0x12, 0x34);
+	m.set(2, 0x14, 0x88);
+	m.set(3, 0x1, 0x1);
 	m.erase(3, 0x1);
-	m.insert(4, 0x1, 0x1);
-	m.insert(6, 0x2, 0x2);
+	m.set(4, 0x1, 0x1);
+	m.set(6, 0x2, 0x2);
 	auto it = m.get_iterator(0, 0x0);
 	REQUIRE(it.valid() == true);
 	REQUIRE(it.curr_idx() == 2); REQUIRE(it.key() == 0x12); REQUIRE(it.value() == 0x34); it.next(); 
@@ -197,6 +197,12 @@ TEST_CASE( "my_map's iterator is tested", "[bigmap]") {
 	REQUIRE(it.curr_idx() == 6); REQUIRE(it.key() == 0x2); REQUIRE(it.value() == 0x2); it.next();
 	REQUIRE(it.valid() == false);
 	it = m.get_iterator(7, 0x9);
+	REQUIRE(it.valid() == false);
+	it = m.get_iterator(4, 0x1);
+	REQUIRE(it.valid() == true);
+	REQUIRE(it.curr_idx() == 4); REQUIRE(it.key() == 0x1); REQUIRE(it.value() == 0x1); it.prev();
+	REQUIRE(it.curr_idx() == 2); REQUIRE(it.key() == 0x14); REQUIRE(it.value() == 0x88); it.prev();
+	REQUIRE(it.curr_idx() == 2); REQUIRE(it.key() == 0x12); REQUIRE(it.value() == 0x34); it.prev(); 
 	REQUIRE(it.valid() == false);
 }
 

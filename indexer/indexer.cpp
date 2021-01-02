@@ -201,7 +201,7 @@ void indexer::add_block(uint32_t height, uint64_t hash48, int64_t offset40) {
 	if(ok && it->second!=nullptr) {
 		it->second->clear();
 	} else {
-		blk_htpos2ptr_map.insert(height>>24, ht3off5, nullptr);
+		blk_htpos2ptr_map.set(height>>24, ht3off5, nullptr);
 	}
 	blk_hash2ht_map.insert(hash48>>32, uint32_t(hash48), height);
 }
@@ -271,7 +271,7 @@ i64_list indexer::offsets_by_block_hash(uint64_t hash48) {
 // add a new transaction's information, return whether hash48 is available to use
 void indexer::add_tx(uint64_t id56, uint64_t hash48, int64_t offset40) {
 	auto off40 = bits40::from_int64(offset40);
-	tx_id2pos_map.insert(id56>>40, bits40::from_uint64(id56), off40);
+	tx_id2pos_map.set(id56>>40, bits40::from_uint64(id56), off40);
 	tx_hash2pos_map.insert(hash48>>32, bits32::from_uint64(hash48), off40);
 }
 
@@ -321,7 +321,7 @@ void indexer::add_to_log_map(log_map& m, uint64_t hash48, uint32_t height, uint3
 			vec->push_back(bits24::from_uint32(index_ptr[i]));
 		}
 	}
-	m.insert(hash48>>32, (hash48<<32)|uint64_t(height), v);
+	m.set(hash48>>32, (hash48<<32)|uint64_t(height), v);
 }
 
 // the iterators in vector are all valid

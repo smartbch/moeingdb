@@ -60,6 +60,7 @@ public:
 	typedef btree::btree_map<key_type, value_type> basic_map;
 private:
 	basic_map* _map_arr[slot_count];
+	size_t _size;
 	// make sure a slot do have a basic_map in it
 	void create_if_null(int idx) {
 		if(_map_arr[idx] == nullptr) {
@@ -67,7 +68,7 @@ private:
 		}
 	}
 public:
-	bigmap() {
+	bigmap(): _size(0) {
 		for(int i = 0; i < slot_count; i++) {
 			_map_arr[i] = nullptr;
 		}
@@ -84,20 +85,33 @@ public:
 	bigmap(bigmap&& other) = delete;
 	bigmap& operator=(bigmap&& other) = delete;
 
+	size_t size() {
+		return _size;
+	}
 	int get_slot_count() {
 		return slot_count;
 	}
-	// insert (k,v) at the basic_map in the 'idx'-th slot
-	void insert(uint64_t idx, key_type k, value_type v) {
+	// add (k,v) at the basic_map in the 'idx'-th slot
+	void set(uint64_t idx, key_type k, value_type v) {
 		assert(idx < slot_count);
 		create_if_null(idx);
-		_map_arr[idx]->insert(std::make_pair(k, v));
+		auto it = _map_arr[idx]->lower_bound(k);
+		if(it !=  _map_arr[idx]->end() && it->first == k) {
+			it->second = v; //overwrite the old value
+			return;
+		}
+		_map_arr[idx]->insert(it, std::make_pair(k, v));
+		_size++;
 	}
 	// erase (k,v) at the basic_map in the 'idx'-th slot
 	void erase(uint64_t idx, key_type k) {
 		assert(idx < slot_count);
 		if(_map_arr[idx] == nullptr) return;
-		_map_arr[idx]->erase(k);
+		auto it = _map_arr[idx]->find(k);
+		if(it !=  _map_arr[idx]->end()) {
+			_map_arr[idx]->erase(it);
+			_size--;
+		}
 	}
 	// seek to a postion no large than the 'k' at the basic_map in the 'idx'-th slot
 	// *ok indicates whether the returned iterator is valid
@@ -131,7 +145,7 @@ public:
 		return it->second;
 	}
 	// return the sum of the sizes of all the basic_maps
-	size_t size() {
+	size_t slow_size() {
 		size_t total = 0;
 		for(int i = 0; i < slot_count; i++) {
 			if(_map_arr[i] == nullptr) continue;
@@ -158,11 +172,30 @@ public:
 				if(_valid) break;
 			}
 		}
+		void handle_slot_crossing_rev() {
+			_valid = false;
+			for(_curr_idx--; _curr_idx > 0; _curr_idx--) {
+				if(_map->_map_arr[_curr_idx] == nullptr) continue; //skip null slot
+				auto rev_it = _map->_map_arr[_curr_idx]->rbegin();
+				_valid = rev_it != _map->_map_arr[_curr_idx]->rend(); //stop loop when _valid==true
+				if(_valid) {
+					_iter = _map->_map_arr[_curr_idx]->find(rev_it->first);
+					break;
+				}
+			}
+		}
 		void check_ending() {
 			if(_curr_idx >= slot_count) {
 				_valid = false;
 			} else if(_curr_idx == slot_count-1 &&
 				_iter == _map->_map_arr[_curr_idx]->end()) {
+				_valid = false;
+			}
+		}
+		void check_ending_rev(bool is_first) {
+			if(_curr_idx < 0) {
+				_valid = false;
+			} else if(_curr_idx == 0 && is_first) {
 				_valid = false;
 			}
 		}
@@ -180,6 +213,9 @@ public:
 		value_type value() {
 			return _iter->second;
 		}
+		void set_value(value_type v) {
+			_iter->second = v;
+		}
 		// when this iterator points at the end of a slot, move it to the next valid position
 		void next() {
 			if(!_valid) return;
@@ -187,9 +223,18 @@ public:
 			handle_slot_crossing();
 			check_ending();
 		}
+		void prev() {
+			if(!_valid) return;
+			bool is_first = (_iter == _map->_map_arr[_curr_idx]->begin());
+			_iter--;
+			if(is_first) {
+				handle_slot_crossing_rev();
+			}
+			check_ending_rev(is_first);
+		}
 	};
 
-	// Return a forward iterator. It starts at [start_idx,start_key)
+	// Return an iterator starting at [start_idx,start_key)
 	iterator get_iterator(int start_idx, key_type start_key) {
 		class iterator iter;
 		iter._valid = true;
@@ -199,7 +244,7 @@ public:
 			for(; iter._curr_idx < slot_count; iter._curr_idx++) {
 				if(_map_arr[iter._curr_idx] != nullptr) break;
 			}
-			if(_map_arr[iter._curr_idx] == nullptr) {
+			if(iter._curr_idx == slot_count || _map_arr[iter._curr_idx] == nullptr) {
 				iter._valid = false;
 				return iter;
 			} else {
