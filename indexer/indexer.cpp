@@ -127,8 +127,8 @@ public:
 				magic_u64 = (magic_u64<<3)>>3; //clear the tag
 				auto vec = _parent->get_vec_at_height(height, false);
 				assert(vec != nullptr);
-				_curr_list.size = vec->at(magic_u64).to_uint64();
-				_curr_list.data = vec->data() + magic_u64 + 1;
+				_curr_list.size = (magic_u64 & ((1<<20)-1));
+				_curr_list.data = vec->data() + (magic_u64 >> 20);
 			} else { // no more than 3 members. extract them out from magic_u64
 				assert(tag != 0 && tag <= 3);
 				_curr_list = bits24_list::from_uint64(magic_u64);
@@ -307,21 +307,21 @@ i64_list indexer::offsets_by_tx_hash(uint64_t hash48) {
 
 // given a log_map m, add new information into it
 void indexer::add_to_log_map(log_map& m, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
-	uint64_t v;
+	uint64_t magic_u64;
 	assert(index_count>=0);
 	if(index_count <= 3) { // store the indexes as an in-place integer
-		v = compact_index_list(index_ptr, index_count);
+		magic_u64 = compact_index_list(index_ptr, index_count);
 	} else { // store the indexes in a bits24_vec shared by all the logs in a block
 		auto vec = get_vec_at_height(height, true);
 		assert(vec != nullptr);
-		v = vec->size(); //pointing to the start of the new members
-		v |= uint64_t(7)<<61; // the highest three bits are all set to 1
-		vec->push_back(bits24::from_uint32(index_count)); //add a member for size
+		magic_u64 = vec->size(); //pointing to the start of the new members
+		magic_u64 = (magic_u64<<20) | index_count; //embed the count into low 20 bits
+		magic_u64 |= uint64_t(7)<<61; // the highest three bits are all set to 1
 		for(int i=0; i<index_count; i++) {  // add members for indexes
 			vec->push_back(bits24::from_uint32(index_ptr[i]));
 		}
 	}
-	m.set(hash48>>32, (hash48<<32)|uint64_t(height), v);
+	m.set(hash48>>32, (hash48<<32)|uint64_t(height), magic_u64);
 }
 
 // the iterators in vector are all valid
