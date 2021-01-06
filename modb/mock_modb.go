@@ -101,7 +101,8 @@ func hasAllTopic(log types.Log, topics [][32]byte) bool {
 func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for _, blk := range db.blkList {
+	for i := startHeight; i < endHeight; i++ {
+		blk := db.blkList[i]
 		for _, tx := range blk.TxList {
 			for _, log := range tx.LogList {
 				if addr != nil && !bytes.Equal((*addr)[:], log.Address[:]) {

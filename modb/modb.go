@@ -140,6 +140,7 @@ func (db *MoDB) Close() {
 }
 
 // Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
+// The ownership of 'blk' will be transferred to MoDB and cannot be changed by out world!
 func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
 	if(blk == nil) {
@@ -456,12 +457,13 @@ func Sum48(seed [8]byte, key []byte) uint64 {
 }
 
 // append value at a slice at 'key'. If the slice does not exist, create it.
-func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) {
+func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) []uint32 {
 	_, ok := m[key]
 	if !ok {
 		m[key] = make([]uint32, 0, 10)
 	}
 	m[key] = append(m[key], value)
+	return m[key]
 }
 
 // make sure (length+n)%32 == 0

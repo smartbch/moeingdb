@@ -20,3 +20,4 @@
 *.gcov
 *.gcda
 *.gcno
+modb/fuzz/fuzz
