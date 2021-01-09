@@ -1,4 +1,4 @@
-package main
+package fuzz
 
 import (
 	"bytes"
@@ -60,20 +60,18 @@ func assert(b bool) {
 	}
 }
 
-func main() {
-	if len(os.Args) != 3 {
-		fmt.Printf("Usage: %s <rand-source-file> <round-count>\n", os.Args[0])
+func runTest(cfg FuzzConfig) {
+	randFilename := os.Getenv("RANDFILE")
+	if len(randFilename) == 0 {
+		fmt.Printf("No RANDFILE specified. Exiting...")
 		return
 	}
-	fname := os.Args[1]
-	roundCount, err := strconv.Atoi(os.Args[2])
+	roundCount, err := strconv.Atoi(os.Getenv("RANDCOUNT"))
 	if err != nil {
 		panic(err)
 	}
 
-	cfg := Config2
-
-	rs := randsrc.NewRandSrcFromFile(fname)
+	rs := randsrc.NewRandSrcFromFile(randFilename)
 	initGlobal(rs, cfg)
 	for i := 0; i < roundCount; i++ {
 		if i % 5 == 0 {
@@ -155,20 +153,38 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	os.Mkdir("./test", 0700)
 	os.Mkdir("./test/data", 0700)
 	imp := modb.CreateEmptyMoDB("./test", [8]byte{1,2,3,4,5,6,7,8})
-	defer imp.Close()
 	blkList := make([]*types.Block, 0, cfg.TotalBlocks)
+	pruneTill := int64(-1)
+	if rs.GetUint32() % 2 == 1 { // 50% possibility to prune
+		pruneTill = 1 + (rs.GetInt64() % int64(cfg.TotalBlocks))
+	}
 	for h := int64(0); h < int64(cfg.TotalBlocks); h++ {
 		blk := GetBlock(rs, h, cfg)
 		blkList = append(blkList, blk)
-		ref.AddBlock(blk, -1)
-		imp.AddBlock(blk, -1)
+		if h >= pruneTill {
+			ref.AddBlock(blk, -1)
+		}
+		if h == int64(cfg.TotalBlocks)-1 {
+			imp.AddBlock(blk, pruneTill)
+		} else {
+			imp.AddBlock(blk, -1)
+		}
 	}
+	ref.AddBlock(nil, -1)
 	imp.AddBlock(nil, -1)
+	if rs.GetUint32() % 2 == 1 { // 50% possibility to re-open
+		imp.Close()
+		imp = modb.NewMoDB("./test")
+	}
 	for h, blk := range blkList {
+		if int64(h) < pruneTill {
+			continue
+		}
 		if !bytes.Equal(imp.GetBlockByHeight(int64(h)), blk.BlockInfo) {
 			fmt.Printf("Why %s %s\n", string(imp.GetBlockByHeight(int64(h))), string(blk.BlockInfo))
 		}
 		assert(bytes.Equal(imp.GetBlockByHeight(int64(h)), blk.BlockInfo))
+		assert(bytes.Equal(ref.GetBlockByHeight(int64(h)), blk.BlockInfo))
 		foundIt := false
 		imp.GetBlockByHash(blk.BlockHash, func(info []byte) bool {
 			if bytes.Equal(blk.BlockInfo, info) {
@@ -178,9 +194,29 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 			return false
 		})
 		assert(foundIt)
+		foundIt = false
+		ref.GetBlockByHash(blk.BlockHash, func(info []byte) bool {
+			if bytes.Equal(blk.BlockInfo, info) {
+				foundIt = true
+				return true
+			}
+			return false
+		})
+		assert(foundIt)
 		for idx, tx := range blk.TxList {
 			assert(bytes.Equal(imp.GetTxByHeightAndIndex(int64(h), idx), tx.Content))
+			assert(bytes.Equal(ref.GetTxByHeightAndIndex(int64(h), idx), tx.Content))
+			foundIt = false
 			imp.GetTxByHash(tx.HashId, func(content []byte) bool {
+				if bytes.Equal(tx.Content, content) {
+					foundIt = true
+					return true
+				}
+				return false
+			})
+			assert(foundIt)
+			foundIt = false
+			ref.GetTxByHash(tx.HashId, func(content []byte) bool {
 				if bytes.Equal(tx.Content, content) {
 					foundIt = true
 					return true
@@ -226,6 +262,8 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 		}
 		assert(ok)
 	}
+	ref.Close()
+	imp.Close()
 }
 
 func PrintBlocks(blkList []*types.Block) {

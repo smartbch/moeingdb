@@ -9,7 +9,7 @@ import (
 
 type MockMoDB struct {
 	mtx     sync.RWMutex
-	blkList []types.Block
+	blkMap  map[int64]types.Block
 }
 
 func (db *MockMoDB) Close() {
@@ -21,13 +21,16 @@ func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
-	db.blkList = append(db.blkList, blk.Clone())
+	if db.blkMap == nil {
+		db.blkMap = make(map[int64]types.Block)
+	}
+	db.blkMap[blk.Height] = blk.Clone()
 }
 
 func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for _, blk := range db.blkList {
+	for _, blk := range db.blkMap {
 		if blk.Height == height {
 			return blk.BlockInfo
 		}
@@ -38,7 +41,7 @@ func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
 func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for _, blk := range db.blkList {
+	for _, blk := range db.blkMap {
 		if blk.Height == height {
 			if index >= len(blk.TxList) {
 				return nil
@@ -52,7 +55,7 @@ func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for _, blk := range db.blkList {
+	for _, blk := range db.blkMap {
 		if bytes.Equal(blk.BlockHash[:], hash[:]) {
 			ok := collectResult(blk.BlockInfo)
 			if !ok {
@@ -65,7 +68,7 @@ func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) boo
 func (db *MockMoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for _, blk := range db.blkList {
+	for _, blk := range db.blkMap {
 		for _, tx := range blk.TxList {
 			if bytes.Equal(tx.HashId[:], hash[:]) {
 				ok := collectResult(tx.Content)
@@ -101,8 +104,11 @@ func hasAllTopic(log types.Log, topics [][32]byte) bool {
 func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
-	for i := startHeight; i < endHeight; i++ {
-		blk := db.blkList[i]
+	for i := int64(startHeight); i < int64(endHeight); i++ {
+		blk, ok := db.blkMap[i]
+		if !ok {
+			continue
+		}
 		for _, tx := range blk.TxList {
 			for _, log := range tx.LogList {
 				if addr != nil && !bytes.Equal((*addr)[:], log.Address[:]) {
