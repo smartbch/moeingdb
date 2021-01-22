@@ -192,19 +192,19 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 		res = append(res, bz...)
 		return true
 	}
-	db.QueryLogs(&bob, [][32]byte{t1}, 1, 3, getRes)
+	db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 3, getRes)
 	assert.Equal(t, " Tx1-0 Tx2-1", string(res))
 	res = res[:0]
-	db.QueryLogs(&bob, [][32]byte{t0, t1}, 1, 3, getRes)
+	db.BasicQueryLogs(&bob, [][32]byte{t0, t1}, 1, 3, getRes)
 	assert.Equal(t, " Tx1-0", string(res))
 	res = res[:0]
-	db.QueryLogs(&alice, [][32]byte{}, 1, 3, getRes)
+	db.BasicQueryLogs(&alice, [][32]byte{}, 1, 3, getRes)
 	assert.Equal(t, " Tx1-1 Tx2-0", string(res))
 	res = res[:0]
-	db.QueryLogs(nil, [][32]byte{t1}, 1, 3, getRes)
+	db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 3, getRes)
 	assert.Equal(t, " Tx1-0 Tx1-1 Tx2-1", string(res))
 	res = res[:0]
-	db.QueryLogs(&bob, [][32]byte{t2}, 1, 3, getRes)
+	db.BasicQueryLogs(&bob, [][32]byte{t2}, 1, 3, getRes)
 	assert.Equal(t, " Tx2-1", string(res))
 
 	if !with3rdBlock {
@@ -276,16 +276,16 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	assert.Equal(t, "Tx3-1", string(bz))
 
 	res = res[:0]
-	db.QueryLogs(&bob, [][32]byte{t1}, 1, 4, getRes)
+	db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 4, getRes)
 	assert.Equal(t, " Tx2-1 Tx3-0", string(res))
 	res = res[:0]
-	db.QueryLogs(&bob, [][32]byte{t0, t1}, 1, 4, getRes)
+	db.BasicQueryLogs(&bob, [][32]byte{t0, t1}, 1, 4, getRes)
 	assert.Equal(t, " Tx3-0", string(res))
 	res = res[:0]
-	db.QueryLogs(&alice, [][32]byte{}, 1, 4, getRes)
+	db.BasicQueryLogs(&alice, [][32]byte{}, 1, 4, getRes)
 	assert.Equal(t, " Tx2-0 Tx3-1", string(res))
 	res = res[:0]
-	db.QueryLogs(nil, [][32]byte{t1}, 1, 4, getRes)
+	db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 4, getRes)
 	assert.Equal(t, " Tx2-1 Tx3-0 Tx3-1", string(res))
 	res = res[:0]
 	var getOnly1Res = func(bz []byte) bool {
@@ -293,11 +293,67 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 		res = append(res, bz...)
 		return false
 	}
-	db.QueryLogs(nil, [][32]byte{t1}, 1, 4, getOnly1Res)
+	db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 4, getOnly1Res)
 	assert.Equal(t, " Tx2-1", string(res))
 	res = res[:0]
-	db.QueryLogs(&bob, [][32]byte{t2}, 1, 4, getRes)
+	db.BasicQueryLogs(&bob, [][32]byte{t2}, 1, 4, getRes)
 	assert.Equal(t, " Tx2-1", string(res))
 }
 
+func TestOther(t *testing.T) {
+	offLists := make([][]int64, 4)
+	offLists[0] = []int64{0, 2, 7, 10}
+	offLists[1] = []int64{0, 2, 3}
+	offLists[2] = []int64{11, 12}
+	offLists[3] = []int64{}
+	res := mergeOffLists(offLists)
+	assert.Equal(t, []int64{0, 2, 3, 7, 10, 11, 12}, res)
+	offLists[0] = []int64{1, 3, 5}
+	offLists[1] = []int64{5, 9}
+	offLists[2] = []int64{9, 12}
+	offLists[3] = []int64{8, 16}
+	res = mergeOffLists(offLists)
+	assert.Equal(t, []int64{1, 3, 5, 8, 9, 12, 16}, res)
+	offLists[0] = []int64{1, 3, 5}
+	res = mergeOffLists(offLists[:1])
+	assert.Equal(t, []int64{1, 3, 5}, res)
+
+	var a, b, c [20]byte
+	a[0], b[0], c[0] = 'a', 'b', 'c'
+	var d, e, f, g, x, y [32]byte
+	d[0], e[0], f[0], g[0], x[0], y[0] = 'd', 'e', 'f', 'g', 'x', 'y'
+	t0 := [][32]byte{d, e}
+	t1 := [][32]byte{f, g}
+	aatList := expandQueryCondition([][20]byte{a,b,c}, [][][32]byte{t0})
+	concatRes := ""
+	for _, aat := range aatList {
+		concatRes += aat.toShortStr() + " "
+	}
+	assert.Equal(t, "ad ae bd be cd ce ", concatRes)
+
+	aatList = expandQueryCondition([][20]byte{}, [][][32]byte{t0, t1})
+	concatRes = ""
+	for _, aat := range aatList {
+		concatRes += aat.toShortStr() + " "
+	}
+	assert.Equal(t, "-df -dg -ef -eg ", concatRes)
+
+	aatList = expandQueryCondition([][20]byte{a, b, c}, [][][32]byte{t0, t1})
+	concatRes = ""
+	for _, aat := range aatList {
+		concatRes += aat.toShortStr() + " "
+	}
+	assert.Equal(t, "adf adg aef aeg bdf bdg bef beg cdf cdg cef ceg ", concatRes)
+
+	aatList = expandQueryCondition([][20]byte{a, b, c}, [][][32]byte{t0, t1, {x}, {y}})
+	concatRes = ""
+	for _, aat := range aatList {
+		concatRes += aat.toShortStr() + " "
+	}
+	assert.Equal(t, "adfxy adgxy aefxy aegxy bdfxy bdgxy befxy begxy cdfxy cdgxy cefxy cegxy ", concatRes)
+
+	aatList = expandQueryCondition([][20]byte{a}, [][][32]byte{{d}, {f}, {x}, {y}})
+	assert.Equal(t, 1, len(aatList))
+	assert.Equal(t, "adfxy", aatList[0].toShortStr())
+}
 

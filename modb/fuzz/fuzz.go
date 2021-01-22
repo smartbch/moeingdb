@@ -131,7 +131,7 @@ func Query(db types.DB, useAddr bool, log types.Log, startHeight, endHeight uint
 	if !useAddr {
 		addr = nil
 	}
-	db.QueryLogs(addr, log.Topics, startHeight, endHeight, func(info []byte) bool {
+	db.BasicQueryLogs(addr, log.Topics, startHeight, endHeight, func(info []byte) bool {
 		txSet[string(info)] = struct{}{}
 		return true
 	})

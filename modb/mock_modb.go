@@ -101,7 +101,7 @@ func hasAllTopic(log types.Log, topics [][32]byte) bool {
 	return true
 }
 
-func (db *MockMoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MockMoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	for i := int64(startHeight); i < int64(endHeight); i++ {

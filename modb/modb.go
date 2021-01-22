@@ -19,6 +19,11 @@ import (
 	"BXXXX" ('B' followed by 4 bytes) the indexing information for a block
 */
 
+const (
+	MaxExpandedSize = 64
+	MaxMatchedTx = 50000
+)
+
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
@@ -424,20 +429,92 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	}
 }
 
-// given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
+type addrAndTopics struct {
+	addr   *[20]byte
+	topics [][32]byte
+}
+
+func (aat *addrAndTopics) appendTopic(topic [32]byte) addrAndTopics {
+	return addrAndTopics{
+		addr:   aat.addr,
+		topics: append(append([][32]byte{}, aat.topics...), topic),
+	}
+}
+
+func (aat *addrAndTopics) isEmpty() bool {
+	return aat.addr == nil && len(aat.topics) == 0
+}
+
+func (aat *addrAndTopics) toShortStr() string {
+	s := "-"
+	if aat.addr != nil {
+		s = string((*aat.addr)[0])
+	}
+	for _, t := range aat.topics {
+		s += string(t[0])
+	}
+	return s
+}
+
+/*
+Given a 'AND of OR' list, expand it into 'OR of ADD' list.
+For example, '(a|b|c) & (d|e) & (f|g)' expands to:
+    (a&d&f) | (a&d&g) | (a&e&f) | (a&e&g)
+    (b&d&f) | (b&d&g) | (b&e&f) | (b&e&g)
+    (c&d&f) | (c&d&g) | (c&e&f) | (c&e&g)
+*/
+func expandQueryCondition(addrOrList [][20]byte, topicsOrList [][][32]byte) []addrAndTopics {
+	res := make([]addrAndTopics, 0, MaxExpandedSize)
+	var initList []addrAndTopics
+	if len(addrOrList) == 0 {
+		initList = []addrAndTopics{ addrAndTopics{addr: nil} }
+	} else {
+		initList = make([]addrAndTopics, 0, len(addrOrList))
+		for i := range addrOrList {
+			initList = append(initList, addrAndTopics{addr: &addrOrList[i]})
+		}
+	}
+	if len(topicsOrList) >= 1 && len(res) <= MaxExpandedSize {
+		res = expandTopics(topicsOrList[0], initList)
+	}
+	if len(topicsOrList) >= 2 && len(res) <= MaxExpandedSize {
+		res = expandTopics(topicsOrList[1], res)
+	}
+	if len(topicsOrList) >= 3 && len(res) <= MaxExpandedSize {
+		res = expandTopics(topicsOrList[2], res)
+	}
+	if len(topicsOrList) >= 4 && len(res) <= MaxExpandedSize {
+		res = expandTopics(topicsOrList[3], res)
+	}
+	if len(res) > MaxExpandedSize {
+		return res[:MaxExpandedSize]
+	}
+	return res
+}
+
+// For each element in 'inList', expand it into len(topicsOrList) by appending different topics, and put
+// the results into 'outList'
+func expandTopics(topicOrList [][32]byte, inList []addrAndTopics) (outList []addrAndTopics) {
+	outList = make([]addrAndTopics, 0, MaxExpandedSize)
+	for _, aat := range inList {
+		for _, topic := range topicOrList {
+			outList = append(outList, aat.appendTopic(topic))
+		}
+	}
+	return
+}
+
+// Given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
 // whether it wants more data.
-func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
-	addrHash48 := uint64(1) << 63 // an invalid value
-	if addr != nil {
-		addrHash48 = Sum48(db.seed, (*addr)[:])
-	}
-	topicHash48List := make([]uint64, len(topics))
-	for i, hash := range topics {
-		topicHash48List[i] = Sum48(db.seed, hash[:])
-	}
-	offList := db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
+	offList := db.getTxOffList(addr, topics, startHeight, endHeight)
+	db.runFnAtTxs(offList, fn)
+}
+
+// Read TXs out according to offset lists, and apply 'fn' to them
+func (db *MoDB) runFnAtTxs(offList []int64, fn func([]byte) bool) {
 	for _, offset40 := range offList {
 		bz := db.readInFile(offset40)
 		if needMore := fn(bz); !needMore {
@@ -446,7 +523,65 @@ func (db *MoDB) QueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHei
 	}
 }
 
+// Get a list of TXs' offsets out from the indexer.
+func (db *MoDB) getTxOffList(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32) []int64 {
+	addrHash48 := uint64(1) << 63 // an invalid value
+	if addr != nil {
+		addrHash48 = Sum48(db.seed, (*addr)[:])
+	}
+	topicHash48List := make([]uint64, len(topics))
+	for i, hash := range topics {
+		topicHash48List[i] = Sum48(db.seed, hash[:])
+	}
+	return db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
+}
+
+func (db *MoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	aatList := expandQueryCondition(addrOrList, topicsOrList)
+	offLists := make([][]int64, len(aatList))
+	for i, aat := range aatList {
+		offLists[i] = db.getTxOffList(aat.addr, aat.topics, startHeight, endHeight)
+	}
+	offList := mergeOffLists(offLists)
+	db.runFnAtTxs(offList, fn)
+}
+
 // ===================================
+
+
+// Merge multiple sorted offset lists into one
+func mergeOffLists(offLists [][]int64) []int64 {
+	if len(offLists) == 1 {
+		return offLists[0]
+	}
+	res := make([]int64, 0, 1000)
+	for {
+		idx, min := findMinimumFirstElement(offLists)
+		if idx == -1 {// every one in offLists has been consumed
+			break
+		}
+		if len(res) == 0 || res[len(res)-1] != min {
+			res = append(res, min)
+		}
+		offLists[idx] = offLists[idx][1:] //consume one element of this offset list
+	}
+	return res
+}
+
+// Among several offset list, the idx-th list's first element is the minimum and 'min' is its value
+func findMinimumFirstElement(offLists [][]int64) (idx int, min int64) {
+	idx, min = -1, 0
+	for i := range offLists {
+		if len(offLists[i]) == 0 {
+			continue
+		}
+		if idx == -1 || min > offLists[i][0] {
+			idx = i
+			min = offLists[i][0]
+		}
+	}
+	return
+}
 
 // returns the short hash of the key
 func Sum48(seed [8]byte, key []byte) uint64 {
