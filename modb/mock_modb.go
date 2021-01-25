@@ -125,3 +125,7 @@ func (db *MockMoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeigh
 		}
 	}
 }
+
+func (db *MockMoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	panic("Implement Me")
+}

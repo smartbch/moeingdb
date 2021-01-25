@@ -85,4 +85,5 @@ type DB interface {
 	GetBlockByHash(hash [32]byte, collectResult func([]byte) bool)
 	GetTxByHash(hash [32]byte, collectResult func([]byte) bool)
 	BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 }
