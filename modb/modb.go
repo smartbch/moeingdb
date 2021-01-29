@@ -2,6 +2,7 @@ package modb
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sync"
 
 	"github.com/cespare/xxhash"
@@ -465,25 +466,24 @@ For example, '(a|b|c) & (d|e) & (f|g)' expands to:
 */
 func expandQueryCondition(addrOrList [][20]byte, topicsOrList [][][32]byte) []addrAndTopics {
 	res := make([]addrAndTopics, 0, MaxExpandedSize)
-	var initList []addrAndTopics
 	if len(addrOrList) == 0 {
-		initList = []addrAndTopics{ addrAndTopics{addr: nil} }
+		res = append(res, addrAndTopics{addr: nil} )
 	} else {
-		initList = make([]addrAndTopics, 0, len(addrOrList))
+		res = make([]addrAndTopics, 0, len(addrOrList))
 		for i := range addrOrList {
-			initList = append(initList, addrAndTopics{addr: &addrOrList[i]})
+			res = append(res, addrAndTopics{addr: &addrOrList[i]})
 		}
 	}
-	if len(topicsOrList) >= 1 && len(res) <= MaxExpandedSize {
-		res = expandTopics(topicsOrList[0], initList)
+	if len(topicsOrList) >= 1 && len(res) <= MaxExpandedSize && len(topicsOrList[0]) != 0 {
+		res = expandTopics(topicsOrList[0], res)
 	}
-	if len(topicsOrList) >= 2 && len(res) <= MaxExpandedSize {
+	if len(topicsOrList) >= 2 && len(res) <= MaxExpandedSize && len(topicsOrList[1]) != 0 {
 		res = expandTopics(topicsOrList[1], res)
 	}
-	if len(topicsOrList) >= 3 && len(res) <= MaxExpandedSize {
+	if len(topicsOrList) >= 3 && len(res) <= MaxExpandedSize && len(topicsOrList[2]) != 0 {
 		res = expandTopics(topicsOrList[2], res)
 	}
-	if len(topicsOrList) >= 4 && len(res) <= MaxExpandedSize {
+	if len(topicsOrList) >= 4 && len(res) <= MaxExpandedSize && len(topicsOrList[3]) != 0 {
 		res = expandTopics(topicsOrList[3], res)
 	}
 	if len(res) > MaxExpandedSize {
@@ -538,8 +538,11 @@ func (db *MoDB) getTxOffList(addr *[20]byte, topics [][32]byte, startHeight, end
 
 func (db *MoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	aatList := expandQueryCondition(addrOrList, topicsOrList)
+	fmt.Printf("addrOrList  %#v topicsOrList %#v\n", addrOrList, topicsOrList)
+	fmt.Printf("aatList %#v\n", aatList)
 	offLists := make([][]int64, len(aatList))
 	for i, aat := range aatList {
+		fmt.Printf("offList[%d] %#v\n", i, offLists[i])
 		offLists[i] = db.getTxOffList(aat.addr, aat.topics, startHeight, endHeight)
 	}
 	offList := mergeOffLists(offLists)
