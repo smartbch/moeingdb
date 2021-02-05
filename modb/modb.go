@@ -1,8 +1,8 @@
 package modb
 
 import (
+	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sync"
 
 	"github.com/cespare/xxhash"
@@ -209,11 +209,17 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 		id56 := GetId56(blkIdx.Height, i)
 		db.indexer.AddTx(id56, blkIdx.TxHash48List[i], offset40)
 	}
+	for i, srcHash48 := range blkIdx.SrcHashes {
+		db.indexer.AddSrc2Tx(srcHash48, blkIdx.Height, blkIdx.SrcPosLists[i])
+	}
+	for i, dstHash48 := range blkIdx.DstHashes {
+		db.indexer.AddDst2Tx(dstHash48, blkIdx.Height, blkIdx.DstPosLists[i])
+	}
 	for i, addrHash48 := range blkIdx.AddrHashes {
-		db.indexer.AddAddr2Log(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
+		db.indexer.AddAddr2Tx(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
 	}
 	for i, topicHash48 := range blkIdx.TopicHashes {
-		db.indexer.AddTopic2Log(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
+		db.indexer.AddTopic2Tx(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
 	}
 
 	db.metadb.OpenNewBatch()
@@ -288,19 +294,36 @@ func (db *MoDB) pruneBlock(bi *types.BlockIndex) {
 		id56 := GetId56(bi.Height, i)
 		db.indexer.EraseTx(id56, hash48, bi.TxPosList[i])
 	}
+	for _, hash48 := range bi.SrcHashes {
+		db.indexer.EraseSrc2Tx(hash48, bi.Height)
+	}
+	for _, hash48 := range bi.DstHashes {
+		db.indexer.EraseDst2Tx(hash48, bi.Height)
+	}
 	for _, hash48 := range bi.AddrHashes {
-		db.indexer.EraseAddr2Log(hash48, bi.Height)
+		db.indexer.EraseAddr2Tx(hash48, bi.Height)
 	}
 	for _, hash48 := range bi.TopicHashes {
-		db.indexer.EraseTopic2Log(hash48, bi.Height)
+		db.indexer.EraseTopic2Tx(hash48, bi.Height)
 	}
 }
 
 // fill blkIdx.Topic* and blkIdx.Addr* according to 'blk'
 func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
+	var zeroAddr [20]byte
+	srcIndex := make(map[uint64][]uint32)
+	dstIndex := make(map[uint64][]uint32)
 	addrIndex := make(map[uint64][]uint32)
 	topicIndex := make(map[uint64][]uint32)
 	for i, tx := range blk.TxList {
+		if !bytes.Equal(tx.SrcAddr[:], zeroAddr[:]) {
+			srcHash48 := Sum48(db.seed, tx.SrcAddr[:])
+			AppendAtKey(srcIndex, srcHash48, uint32(i))
+		}
+		if !bytes.Equal(tx.DstAddr[:], zeroAddr[:]) {
+			dstHash48 := Sum48(db.seed, tx.DstAddr[:])
+			AppendAtKey(dstIndex, dstHash48, uint32(i))
+		}
 		for _, log := range tx.LogList {
 			for _, topic := range log.Topics {
 				topicHash48 := Sum48(db.seed, topic[:])
@@ -309,6 +332,20 @@ func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
 			addrHash48 := Sum48(db.seed, log.Address[:])
 			AppendAtKey(addrIndex, addrHash48, uint32(i))
 		}
+	}
+	// the map 'srcIndex' is recorded into two slices
+	blkIdx.SrcHashes = make([]uint64, 0, len(srcIndex))
+	blkIdx.SrcPosLists = make([][]uint32, 0, len(srcIndex))
+	for src, posList := range srcIndex {
+		blkIdx.SrcHashes = append(blkIdx.SrcHashes, src)
+		blkIdx.SrcPosLists = append(blkIdx.SrcPosLists, posList)
+	}
+	// the map 'dstIndex' is recorded into two slices
+	blkIdx.DstHashes = make([]uint64, 0, len(dstIndex))
+	blkIdx.DstPosLists = make([][]uint32, 0, len(dstIndex))
+	for dst, posList := range dstIndex {
+		blkIdx.DstHashes = append(blkIdx.DstHashes, dst)
+		blkIdx.DstPosLists = append(blkIdx.DstPosLists, posList)
 	}
 	// the map 'addrIndex' is recorded into two slices
 	blkIdx.AddrHashes = make([]uint64, 0, len(addrIndex))
@@ -352,11 +389,17 @@ func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 		id56 := GetId56(blkIdx.Height, i)
 		db.indexer.AddTx(id56, txHash48, blkIdx.TxPosList[i])
 	}
+	for i, srcHash48 := range blkIdx.SrcHashes {
+		db.indexer.AddSrc2Tx(srcHash48, blkIdx.Height, blkIdx.SrcPosLists[i])
+	}
+	for i, dstHash48 := range blkIdx.DstHashes {
+		db.indexer.AddDst2Tx(dstHash48, blkIdx.Height, blkIdx.DstPosLists[i])
+	}
 	for i, addrHash48 := range blkIdx.AddrHashes {
-		db.indexer.AddAddr2Log(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
+		db.indexer.AddAddr2Tx(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
 	}
 	for i, topicHash48 := range blkIdx.TopicHashes {
-		db.indexer.AddTopic2Log(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
+		db.indexer.AddTopic2Tx(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
 	}
 }
 
@@ -538,14 +581,27 @@ func (db *MoDB) getTxOffList(addr *[20]byte, topics [][32]byte, startHeight, end
 
 func (db *MoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	aatList := expandQueryCondition(addrOrList, topicsOrList)
-	fmt.Printf("addrOrList  %#v topicsOrList %#v\n", addrOrList, topicsOrList)
-	fmt.Printf("aatList %#v\n", aatList)
 	offLists := make([][]int64, len(aatList))
 	for i, aat := range aatList {
-		fmt.Printf("offList[%d] %#v\n", i, offLists[i])
 		offLists[i] = db.getTxOffList(aat.addr, aat.topics, startHeight, endHeight)
 	}
 	offList := mergeOffLists(offLists)
+	db.runFnAtTxs(offList, fn)
+}
+
+func (db *MoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
+	addrHash48 := Sum48(db.seed, addr[:])
+	offList := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
+	db.runFnAtTxs(offList, fn)
+}
+
+func (db *MoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
+	addrHash48 := Sum48(db.seed, addr[:])
+	offList := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
 	db.runFnAtTxs(offList, fn)
 }
 

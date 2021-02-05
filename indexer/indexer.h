@@ -17,6 +17,9 @@ extern "C" {
 	// this function deletes l.vec_ptr
 	void i64_list_destroy(struct i64_list l);
 
+	// set maximum count of offsets that a query can return
+	void indexer_set_max_offset_count(size_t ptr, int c);
+
 	// the information used to query some transactions' offsets
 	struct tx_offsets_query {
 		// the 48-bit short hash of a smart contract's address,
@@ -46,11 +49,21 @@ extern "C" {
 	int64_t indexer_offset_by_tx_id(size_t ptr, uint64_t id56);
 	struct i64_list indexer_offsets_by_tx_hash(size_t ptr, uint64_t hash48);
 
+	// source (from address) and destination (to address) of transactions
+	void indexer_add_src2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
+	void indexer_erase_src2tx(size_t ptr, uint64_t hash48, uint32_t height);
+	void indexer_add_dst2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
+	void indexer_erase_dst2tx(size_t ptr, uint64_t hash48, uint32_t height);
+
+	// given a source address or a destination address, query the transactions
+	struct i64_list indexer_query_tx_offsets_by_src(size_t ptr, uint64_t hash48, uint32_t start_height, uint32_t end_height);
+	struct i64_list indexer_query_tx_offsets_by_dst(size_t ptr, uint64_t hash48, uint32_t start_height, uint32_t end_height);
+
 	// add/erase indexes for logs
-	void indexer_add_addr2log(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
-	void indexer_erase_addr2log(size_t ptr, uint64_t hash48, uint32_t height);
-	void indexer_add_topic2log(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
-	void indexer_erase_topic2log(size_t ptr, uint64_t hash48, uint32_t height);
+	void indexer_add_addr2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
+	void indexer_erase_addr2tx(size_t ptr, uint64_t hash48, uint32_t height);
+	void indexer_add_topic2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
+	void indexer_erase_topic2tx(size_t ptr, uint64_t hash48, uint32_t height);
 
 	// given an address and topics, query where to find the transactions containing matching logs
 	struct i64_list indexer_query_tx_offsets(size_t ptr, struct tx_offsets_query q);

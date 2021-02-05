@@ -126,6 +126,34 @@ func (db *MockMoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeigh
 	}
 }
 
+func (db *MockMoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.queryTxBySrcOrDst(false, addr, startHeight, endHeight, fn)
+}
+
+func (db *MockMoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.queryTxBySrcOrDst(true, addr, startHeight, endHeight, fn)
+}
+
+func (db *MockMoDB) queryTxBySrcOrDst(bySrc bool, addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
+	for i := int64(startHeight); i < int64(endHeight); i++ {
+		blk, ok := db.blkMap[i]
+		if !ok {
+			continue
+		}
+		for _, tx := range blk.TxList {
+			if (bySrc && bytes.Equal(addr[:], tx.SrcAddr[:])) ||
+			   (!bySrc && bytes.Equal(addr[:], tx.DstAddr[:])) {
+				needMore := fn(tx.Content)
+				if !needMore {
+					return
+				}
+			}
+		}
+	}
+}
+
 func (db *MockMoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	panic("Implement Me")
 }

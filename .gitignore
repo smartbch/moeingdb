@@ -21,3 +21,4 @@
 *.gcda
 *.gcno
 modb/fuzz/fuzz
+*.html

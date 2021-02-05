@@ -15,9 +15,11 @@ func (log Log) Clone() Log {
 	}
 }
 
-// To index a transaction, we need its HashId and the Logs in it
+// To index a transaction, we need its SrcAddr, DstAddr, HashId and the Logs in it
 type Tx struct {
 	HashId  [32]byte `msg:"h"`
+	SrcAddr [20]byte `msg:"s"`
+	DstAddr [20]byte `msg:"d"`
 	Content []byte   `msg:"c"` // the pre-serialized payload
 	LogList []Log    `msg:"l"`
 }
@@ -66,13 +68,18 @@ type IndexEntry struct {
 type BlockIndex struct {
 	Height       uint32   `msg:"ht"`
 	BlockHash48  uint64   `msg:"bh"`
-	TxHash48List []uint64 `msg:"txl"`
+	TxHash48List []uint64 `msg:"thl"`
 	BeginOffset  int64    `msg:"bo"`
-	TxPosList    []int64  `msg:"tol"`
+	TxPosList    []int64  `msg:"tpl"`
 
-	AddrHashes    []uint64   `msg:"ai"`
+	SrcHashes    []uint64   `msg:"sh"`
+	SrcPosLists  [][]uint32 `msg:"sp"`
+	DstHashes    []uint64   `msg:"dh"`
+	DstPosLists  [][]uint32 `msg:"dp"`
+
+	AddrHashes    []uint64   `msg:"ah"`
 	AddrPosLists  [][]uint32 `msg:"ap"`
-	TopicHashes   []uint64   `msg:"ti"`
+	TopicHashes   []uint64   `msg:"th"`
 	TopicPosLists [][]uint32 `msg:"tp"`
 }
 
@@ -86,4 +93,6 @@ type DB interface {
 	GetTxByHash(hash [32]byte, collectResult func([]byte) bool)
 	BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 }

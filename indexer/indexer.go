@@ -23,6 +23,10 @@ func (idr Indexer) Close() {
 	C.indexer_destroy(idr.ptr)
 }
 
+func (idr Indexer) SetMaxOffsetCount(c int) {
+	C.indexer_set_max_offset_count(idr.ptr, C.int(c))
+}
+
 func (idr Indexer) AddBlock(height uint32, hash48 uint64, offset40 int64) {
 	C.indexer_add_block(idr.ptr, C.uint32_t(height), C.uint64_t(hash48), C.int64_t(offset40))
 }
@@ -55,22 +59,40 @@ func (idr Indexer) GetOffsetsByTxHash(hash48 uint64) []int64 {
 	return i64ListToSlice(C.indexer_offsets_by_tx_hash(idr.ptr, C.uint64_t(hash48)))
 }
 
-func (idr Indexer) AddAddr2Log(hash48 uint64, height uint32, idxList []uint32) {
+func (idr Indexer) AddSrc2Tx(hash48 uint64, height uint32, idxList []uint32) {
 	idxPtr := (*C.uint32_t)(unsafe.Pointer(&idxList[0]))
-	C.indexer_add_addr2log(idr.ptr, C.uint64_t(hash48), C.uint32_t(height), idxPtr, C.int(len(idxList)))
+	C.indexer_add_src2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height), idxPtr, C.int(len(idxList)))
 }
 
-func (idr Indexer) EraseAddr2Log(hash48 uint64, height uint32) {
-	C.indexer_erase_addr2log(idr.ptr, C.uint64_t(hash48), C.uint32_t(height))
+func (idr Indexer) EraseSrc2Tx(hash48 uint64, height uint32) {
+	C.indexer_erase_src2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height))
 }
 
-func (idr Indexer) AddTopic2Log(hash48 uint64, height uint32, idxList []uint32) {
+func (idr Indexer) AddDst2Tx(hash48 uint64, height uint32, idxList []uint32) {
 	idxPtr := (*C.uint32_t)(unsafe.Pointer(&idxList[0]))
-	C.indexer_add_topic2log(idr.ptr, C.uint64_t(hash48), C.uint32_t(height), idxPtr, C.int(len(idxList)))
+	C.indexer_add_dst2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height), idxPtr, C.int(len(idxList)))
 }
 
-func (idr Indexer) EraseTopic2Log(hash48 uint64, height uint32) {
-	C.indexer_erase_topic2log(idr.ptr, C.uint64_t(hash48), C.uint32_t(height))
+func (idr Indexer) EraseDst2Tx(hash48 uint64, height uint32) {
+	C.indexer_erase_dst2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height))
+}
+
+func (idr Indexer) AddAddr2Tx(hash48 uint64, height uint32, idxList []uint32) {
+	idxPtr := (*C.uint32_t)(unsafe.Pointer(&idxList[0]))
+	C.indexer_add_addr2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height), idxPtr, C.int(len(idxList)))
+}
+
+func (idr Indexer) EraseAddr2Tx(hash48 uint64, height uint32) {
+	C.indexer_erase_addr2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height))
+}
+
+func (idr Indexer) AddTopic2Tx(hash48 uint64, height uint32, idxList []uint32) {
+	idxPtr := (*C.uint32_t)(unsafe.Pointer(&idxList[0]))
+	C.indexer_add_topic2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height), idxPtr, C.int(len(idxList)))
+}
+
+func (idr Indexer) EraseTopic2Tx(hash48 uint64, height uint32) {
+	C.indexer_erase_topic2tx(idr.ptr, C.uint64_t(hash48), C.uint32_t(height))
 }
 
 func (idr Indexer) QueryTxOffsets(addrHash uint64, topics []uint64, startHeight, endHeight uint32) []int64 {
@@ -85,6 +107,16 @@ func (idr Indexer) QueryTxOffsets(addrHash uint64, topics []uint64, startHeight,
 	q.end_height = C.uint32_t(endHeight)
 
 	i64List := C.indexer_query_tx_offsets(idr.ptr, q)
+	return i64ListToSlice(i64List)
+}
+
+func (idr Indexer) QueryTxOffsetsBySrc(addrHash uint64, startHeight, endHeight uint32) []int64 {
+	i64List := C.indexer_query_tx_offsets_by_src(idr.ptr, C.uint64_t(addrHash), C.uint32_t(startHeight), C.uint32_t(endHeight))
+	return i64ListToSlice(i64List)
+}
+
+func (idr Indexer) QueryTxOffsetsByDst(addrHash uint64, startHeight, endHeight uint32) []int64 {
+	i64List := C.indexer_query_tx_offsets_by_dst(idr.ptr, C.uint64_t(addrHash), C.uint32_t(startHeight), C.uint32_t(endHeight))
 	return i64ListToSlice(i64List)
 }
 

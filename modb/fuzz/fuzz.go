@@ -20,6 +20,8 @@ type FuzzConfig struct {
 	MaxLogInTx        int
 	MaxTxInBlock      int
 	QueryCount        int
+	SrcQueryCount     int
+	DstQueryCount     int
 }
 
 var Config2 = FuzzConfig{
@@ -29,6 +31,8 @@ var Config2 = FuzzConfig{
 	MaxLogInTx:        15,
 	MaxTxInBlock:      15,
 	QueryCount:        30,
+	SrcQueryCount:     5,
+	DstQueryCount:     5,
 }
 
 var DefaultConfig = FuzzConfig{
@@ -38,6 +42,8 @@ var DefaultConfig = FuzzConfig{
 	MaxLogInTx:        5,
 	MaxTxInBlock:      5,
 	QueryCount:        20,
+	SrcQueryCount:     3,
+	DstQueryCount:     3,
 }
 
 var AddressList [][20]byte
@@ -82,9 +88,9 @@ func runTest(cfg FuzzConfig) {
 }
 
 func GetLog(rs randsrc.RandSrc) (log types.Log) {
-	n := int(rs.GetUint32()) % 5
 	idx := int(rs.GetUint32()) % len(AddressList)
 	copy(log.Address[:], AddressList[idx][:])
+	n := int(rs.GetUint32()) % 5
 	if n == 0 {
 		return
 	}
@@ -99,6 +105,10 @@ func GetLog(rs randsrc.RandSrc) (log types.Log) {
 func GetTx(rs randsrc.RandSrc, height int64, idx int, cfg FuzzConfig) (tx types.Tx) {
 	copy(tx.HashId[:], rs.GetBytes(32))
 	tx.Content = []byte(fmt.Sprintf("tx%d-%d", height, idx))
+	srcIdx := int(rs.GetUint32()) % len(AddressList)
+	copy(tx.SrcAddr[:], AddressList[srcIdx][:])
+	dstIdx := int(rs.GetUint32()) % len(AddressList)
+	copy(tx.DstAddr[:], AddressList[dstIdx][:])
 	n := int(rs.GetUint32()) % cfg.MaxLogInTx
 	if n == 0 {
 		return
@@ -138,6 +148,24 @@ func Query(db types.DB, useAddr bool, log types.Log, startHeight, endHeight uint
 	return txSet
 }
 
+func QueryTxBySrc(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
+	txSet := make(map[string]struct{})
+	db.QueryTxBySrc(addr, startHeight, endHeight, func(info []byte) bool {
+		txSet[string(info)] = struct{}{}
+		return true
+	})
+	return txSet
+}
+
+func QueryTxByDst(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
+	txSet := make(map[string]struct{})
+	db.QueryTxByDst(addr, startHeight, endHeight, func(info []byte) bool {
+		txSet[string(info)] = struct{}{}
+		return true
+	})
+	return txSet
+}
+
 func mapToSortedStrings(m map[string]struct{}) []string {
 	res := make([]string, 0, len(m))
 	for k := range m {
@@ -145,6 +173,15 @@ func mapToSortedStrings(m map[string]struct{}) []string {
 	}
 	sort.Strings(res)
 	return res
+}
+
+func getStartEndHeight(rs randsrc.RandSrc, cfg FuzzConfig) (uint32, uint32) {
+	startHeight := rs.GetUint32() % uint32(cfg.TotalBlocks)
+	endHeight := rs.GetUint32() % uint32(cfg.TotalBlocks)
+	if startHeight > endHeight {
+		startHeight, endHeight = endHeight, startHeight
+	}
+	return startHeight, endHeight
 }
 
 func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
@@ -173,6 +210,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	ref.AddBlock(nil, -1)
 	imp.AddBlock(nil, -1)
 	if rs.GetUint32() % 2 == 1 { // 50% possibility to re-open
+		fmt.Printf("Reopen!\n")
 		imp.Close()
 		imp = modb.NewMoDB("./test")
 	}
@@ -228,11 +266,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	}
 	for i := 0; i < cfg.QueryCount; i++ {
 		//fmt.Printf(" ------- Query %d --------\n", i)
-		startHeight := rs.GetUint32() % uint32(cfg.TotalBlocks)
-		endHeight := rs.GetUint32() % uint32(cfg.TotalBlocks)
-		if startHeight > endHeight {
-			startHeight, endHeight = endHeight, startHeight
-		}
+		startHeight, endHeight := getStartEndHeight(rs, cfg)
 		log := GetLog(rs)
 		useAddr := (int(rs.GetUint32()) % 2) == 0
 		if len(log.Topics) == 0 && !useAddr {
@@ -259,6 +293,41 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 			fmt.Printf(":::::::::::::::::::::::::::::::::::::\n")
 			impSet = Query(imp, true, log, startHeight, endHeight+1)
 			fmt.Printf("impSet Only Addr: %s\n", mapToSortedStrings(impSet))
+		}
+		assert(ok)
+	}
+	for i := 0; i < cfg.SrcQueryCount; i++ {
+		//fmt.Printf(" ------- Query %d --------\n", i)
+		startHeight, endHeight := getStartEndHeight(rs, cfg)
+		idx := int(rs.GetUint32()) % len(AddressList)
+		refSet := QueryTxBySrc(ref, AddressList[idx], startHeight, endHeight)
+		impSet := QueryTxBySrc(imp, AddressList[idx], startHeight, endHeight)
+		ok := true
+		for tx := range refSet {
+			if _, ok = impSet[tx]; !ok {
+				break
+			}
+		}
+		if !ok {
+			fmt.Printf("refSet: %s\n", mapToSortedStrings(refSet))
+			fmt.Printf("impSet: %s\n", mapToSortedStrings(impSet))
+			fmt.Printf("startHeight %d endHeight %d; addr %#v\n",
+				startHeight, endHeight, AddressList[idx])
+			PrintBlocks(blkList)
+		}
+		assert(ok)
+	}
+	for i := 0; i < cfg.DstQueryCount; i++ {
+		//fmt.Printf(" ------- Query %d --------\n", i)
+		startHeight, endHeight := getStartEndHeight(rs, cfg)
+		idx := int(rs.GetUint32()) % len(AddressList)
+		refSet := QueryTxByDst(ref, AddressList[idx], startHeight, endHeight)
+		impSet := QueryTxByDst(imp, AddressList[idx], startHeight, endHeight)
+		ok := true
+		for tx := range refSet {
+			if _, ok = impSet[tx]; !ok {
+				break
+			}
 		}
 		assert(ok)
 	}

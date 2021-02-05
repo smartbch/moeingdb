@@ -38,6 +38,13 @@ struct bits24_list {
 	}
 };
 
+inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec) {
+	if(i64_vec->size() == 1) {
+		return i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
+	}
+	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
+}
+
 //| Name                 | Key                         | Value                   |
 //| -------------------- | --------------------------- | ----------------------- |
 //| Block Content        | Height1 + 3 + Offset5       | Pointer to TxIndex3 Vec |
@@ -62,12 +69,15 @@ class indexer {
 	blk_hash2ht   blk_hash2ht_map;
 	tx_id2pos     tx_id2pos_map;
 	tx_hash2pos   tx_hash2pos_map;
+	log_map       src_map;
+	log_map       dst_map;
 	log_map       addr_map;
 	log_map       topic_map;
+	int           max_offset_count;
 
 	typename blk_htpos2ptr::basic_map::iterator get_iter_at_height(uint32_t height, bool* ok);
 public:
-	indexer() {};
+	indexer(): max_offset_count(1<<30) {};
 	~indexer() {
 		auto it = blk_htpos2ptr_map.get_iterator(0, 0);
 		while(it.valid()) {
@@ -80,6 +90,9 @@ public:
 	indexer(indexer&& other) = delete;
 	indexer& operator=(indexer&& other) = delete;
 
+	void set_max_offset_count(int c) {
+		max_offset_count = c;
+	}
 	void add_block(uint32_t height, uint64_t hash48, int64_t offset40);
 	void erase_block(uint32_t height, uint64_t hash48);
 	int64_t offset_by_block_height(uint32_t height);
@@ -96,16 +109,29 @@ public:
 		m.erase(hash48>>32, (hash48<<32)|uint64_t(height));
 	}
 
-	void add_addr2log(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+	void add_src2tx(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+		add_to_log_map(src_map, hash48, height, index_ptr, index_count);
+	}
+	void erase_src2tx(uint64_t hash48, uint32_t height) {
+		erase_in_log_map(src_map, hash48, height);
+	}
+	void add_dst2tx(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+		add_to_log_map(dst_map, hash48, height, index_ptr, index_count);
+	}
+	void erase_dst2tx(uint64_t hash48, uint32_t height) {
+		erase_in_log_map(dst_map, hash48, height);
+	}
+
+	void add_addr2tx(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
 		add_to_log_map(addr_map, hash48, height, index_ptr, index_count);
 	}
-	void erase_addr2log(uint64_t hash48, uint32_t height) {
+	void erase_addr2tx(uint64_t hash48, uint32_t height) {
 		erase_in_log_map(addr_map, hash48, height);
 	}
-	void add_topic2log(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+	void add_topic2tx(uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
 		add_to_log_map(topic_map, hash48, height, index_ptr, index_count);
 	}
-	void erase_topic2log(uint64_t hash48, uint32_t height) {
+	void erase_topic2tx(uint64_t hash48, uint32_t height) {
 		erase_in_log_map(topic_map, hash48, height);
 	}
 
@@ -185,12 +211,26 @@ private:
 		}
 		return it;
 	}
+	i64_list query_tx_offsets_by(log_map& m, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
+		auto i64_vec = new std::vector<int64_t>;
+		auto iter = _iterator_at_log_map(m, hash48, start_height, end_height);
+		for(int count = 0; iter.valid() && count++ < max_offset_count; iter.next()) {
+			i64_vec->push_back(offset_by_tx_id(iter.value()));
+		}
+		return vec_to_i64_list(i64_vec);
+	}
 public:
 	tx_iterator addr_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
 		return _iterator_at_log_map(this->addr_map, hash48, start_height, end_height);
 	}
 	tx_iterator topic_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
 		return _iterator_at_log_map(this->topic_map, hash48, start_height, end_height);
+	}
+	i64_list query_tx_offsets_by_src(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
+		return query_tx_offsets_by(this->src_map, hash48, start_height, end_height);
+	}
+	i64_list query_tx_offsets_by_dst(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
+		return query_tx_offsets_by(this->dst_map, hash48, start_height, end_height);
 	}
 	i64_list query_tx_offsets(const tx_offsets_query& q);
 };
@@ -363,7 +403,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 	if(iters.size() == 0) {
 		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
 	}
-	while(iters_all_valid(iters)) {
+	for(int count = 0; iters_all_valid(iters) && count < max_offset_count; count++) {
 		for(int i=1; i<iters.size(); i++) {
 			while(iters[i].valid() && iters[i].value() < iters[0].value()) {
 				iters[i].next(); //all the others mutch catch up with iters[0]
@@ -379,10 +419,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 			iters[0].next();
 		}
 	}
-	if(i64_vec->size() == 1) {
-		return i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
-	}
-	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
+	return vec_to_i64_list(i64_vec);
 }
 
 // =============================================================================
@@ -393,6 +430,10 @@ size_t indexer_create() {
 
 void indexer_destroy(size_t ptr) {
 	delete (indexer*)ptr;
+}
+
+void indexer_set_max_offset_count(size_t ptr, int c) {
+	((indexer*)ptr)->set_max_offset_count(c);
 }
 
 void indexer_add_block(size_t ptr, uint32_t height, uint64_t hash48, int64_t offset40) {
@@ -427,24 +468,44 @@ i64_list indexer_offsets_by_tx_hash(size_t ptr, uint64_t hash48) {
 	return ((indexer*)ptr)->offsets_by_tx_hash(hash48);
 }
 
-void indexer_add_addr2log(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
-	((indexer*)ptr)->add_addr2log(hash48, height, index_ptr, index_count);
+void indexer_add_src2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+	((indexer*)ptr)->add_src2tx(hash48, height, index_ptr, index_count);
+}
+void indexer_erase_src2tx(size_t ptr, uint64_t hash48, uint32_t height) {
+	((indexer*)ptr)->erase_src2tx(hash48, height);
 }
 
-void indexer_erase_addr2log(size_t ptr, uint64_t hash48, uint32_t height) {
-	((indexer*)ptr)->erase_addr2log(hash48, height);
+void indexer_add_dst2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+	((indexer*)ptr)->add_dst2tx(hash48, height, index_ptr, index_count);
+}
+void indexer_erase_dst2tx(size_t ptr, uint64_t hash48, uint32_t height) {
+	((indexer*)ptr)->erase_dst2tx(hash48, height);
 }
 
-void indexer_add_topic2log(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
-	((indexer*)ptr)->add_topic2log(hash48, height, index_ptr, index_count);
+void indexer_add_addr2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+	((indexer*)ptr)->add_addr2tx(hash48, height, index_ptr, index_count);
+}
+void indexer_erase_addr2tx(size_t ptr, uint64_t hash48, uint32_t height) {
+	((indexer*)ptr)->erase_addr2tx(hash48, height);
 }
 
-void indexer_erase_topic2log(size_t ptr, uint64_t hash48, uint32_t height) {
-	((indexer*)ptr)->erase_topic2log(hash48, height);
+void indexer_add_topic2tx(size_t ptr, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count) {
+	((indexer*)ptr)->add_topic2tx(hash48, height, index_ptr, index_count);
+}
+void indexer_erase_topic2tx(size_t ptr, uint64_t hash48, uint32_t height) {
+	((indexer*)ptr)->erase_topic2tx(hash48, height);
 }
 
 i64_list indexer_query_tx_offsets(size_t ptr, tx_offsets_query q) {
 	return ((indexer*)ptr)->query_tx_offsets(q);
+}
+
+i64_list indexer_query_tx_offsets_by_src(size_t ptr, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
+	return ((indexer*)ptr)->query_tx_offsets_by_src(hash48, start_height, end_height);
+}
+
+i64_list indexer_query_tx_offsets_by_dst(size_t ptr, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
+	return ((indexer*)ptr)->query_tx_offsets_by_dst(hash48, start_height, end_height);
 }
 
 void i64_list_destroy(i64_list l) {
