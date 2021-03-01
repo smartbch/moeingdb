@@ -605,6 +605,16 @@ func (db *MoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn fu
 	db.runFnAtTxs(offList, fn)
 }
 
+func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
+	addrHash48 := Sum48(db.seed, addr[:])
+	offListSrc := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
+	offListDst := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
+	offList := mergeOffLists([][]int64{offListSrc, offListDst})
+	db.runFnAtTxs(offList, fn)
+}
+
 // ===================================
 
 

@@ -95,4 +95,5 @@ type DB interface {
 	QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 }

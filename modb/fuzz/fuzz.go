@@ -22,6 +22,7 @@ type FuzzConfig struct {
 	QueryCount        int
 	SrcQueryCount     int
 	DstQueryCount     int
+	SrcDstQueryCount  int
 }
 
 var Config2 = FuzzConfig{
@@ -33,6 +34,7 @@ var Config2 = FuzzConfig{
 	QueryCount:        30,
 	SrcQueryCount:     5,
 	DstQueryCount:     5,
+	SrcDstQueryCount:  5,
 }
 
 var DefaultConfig = FuzzConfig{
@@ -44,6 +46,7 @@ var DefaultConfig = FuzzConfig{
 	QueryCount:        20,
 	SrcQueryCount:     3,
 	DstQueryCount:     3,
+	SrcDstQueryCount:  3,
 }
 
 var AddressList [][20]byte
@@ -160,6 +163,15 @@ func QueryTxBySrc(db types.DB, addr [20]byte, startHeight, endHeight uint32) map
 func QueryTxByDst(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
 	txSet := make(map[string]struct{})
 	db.QueryTxByDst(addr, startHeight, endHeight, func(info []byte) bool {
+		txSet[string(info)] = struct{}{}
+		return true
+	})
+	return txSet
+}
+
+func QueryTxBySrcOrDst(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
+	txSet := make(map[string]struct{})
+	db.QueryTxBySrcOrDst(addr, startHeight, endHeight, func(info []byte) bool {
 		txSet[string(info)] = struct{}{}
 		return true
 	})
@@ -323,6 +335,20 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 		idx := int(rs.GetUint32()) % len(AddressList)
 		refSet := QueryTxByDst(ref, AddressList[idx], startHeight, endHeight)
 		impSet := QueryTxByDst(imp, AddressList[idx], startHeight, endHeight)
+		ok := true
+		for tx := range refSet {
+			if _, ok = impSet[tx]; !ok {
+				break
+			}
+		}
+		assert(ok)
+	}
+	for i := 0; i < cfg.SrcDstQueryCount; i++ {
+		//fmt.Printf(" ------- Query %d --------\n", i)
+		startHeight, endHeight := getStartEndHeight(rs, cfg)
+		idx := int(rs.GetUint32()) % len(AddressList)
+		refSet := QueryTxBySrcOrDst(ref, AddressList[idx], startHeight, endHeight)
+		impSet := QueryTxBySrcOrDst(imp, AddressList[idx], startHeight, endHeight)
 		ok := true
 		for tx := range refSet {
 			if _, ok = impSet[tx]; !ok {
