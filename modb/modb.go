@@ -49,15 +49,16 @@ func (mtx *rwMutex) rUnlock() {
 }
 
 type MoDB struct {
-	wg      sync.WaitGroup
-	mtx     rwMutex
-	path    string
-	metadb  *RocksDB
-	hpfile  *HPFile
-	blkBuf  []byte
-	idxBuf  []byte
-	seed    [8]byte
-	indexer indexer.Indexer
+	wg       sync.WaitGroup
+	mtx      rwMutex
+	path     string
+	metadb   *RocksDB
+	hpfile   *HPFile
+	blkBuf   []byte
+	idxBuf   []byte
+	seed     [8]byte
+	indexer  indexer.Indexer
+	maxCount int
 }
 
 var _ types.DB = (*MoDB)(nil)
@@ -99,12 +100,13 @@ func NewMoDB(path string) *MoDB {
 		panic(err)
 	}
 	db := &MoDB{
-		path:    path,
-		metadb:  metadb,
-		hpfile:  &hpfile,
-		blkBuf:  make([]byte, 0, 1024),
-		idxBuf:  make([]byte, 0, 1024),
-		indexer: indexer.New(),
+		path:     path,
+		metadb:   metadb,
+		hpfile:   &hpfile,
+		blkBuf:   make([]byte, 0, 1024),
+		idxBuf:   make([]byte, 0, 1024),
+		indexer:  indexer.New(),
+		maxCount: -1,
 	}
 	// for a half-committed block, hpfile may have some garbage after the position
 	// marked by HPF_SIZE
@@ -143,6 +145,11 @@ func (db *MoDB) Close() {
 	db.hpfile.Close()
 	db.metadb.Close()
 	db.indexer.Close()
+}
+
+func (db *MoDB) SetMaxEntryCount(c int) {
+	db.indexer.SetMaxOffsetCount(c)
+	db.maxCount = c
 }
 
 // Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
@@ -558,6 +565,9 @@ func (db *MoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, e
 
 // Read TXs out according to offset lists, and apply 'fn' to them
 func (db *MoDB) runFnAtTxs(offList []int64, fn func([]byte) bool) {
+	if db.maxCount > 0 && len(offList) > db.maxCount {
+		offList = offList[:db.maxCount]
+	}
 	for _, offset40 := range offList {
 		bz := db.readInFile(offset40)
 		if needMore := fn(bz); !needMore {

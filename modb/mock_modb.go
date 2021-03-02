@@ -15,6 +15,9 @@ type MockMoDB struct {
 func (db *MockMoDB) Close() {
 }
 
+func (db *MockMoDB) SetMaxEntryCount(c int) {
+}
+
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	if(blk == nil) {
 		return

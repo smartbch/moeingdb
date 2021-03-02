@@ -96,4 +96,6 @@ type DB interface {
 	QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	// This function's parameter limits these functions' returned entry count: BasicQueryLogs, QueryLogs, QueryTxBySrc, QueryTxByDst, QueryTxBySrcOrDst
+	SetMaxEntryCount(c int)
 }
