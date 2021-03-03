@@ -181,16 +181,21 @@ public:
 			}
 			if(_curr_list_idx == _curr_list.size) {
 				_iter.next(); //to the next height
-				if(!_iter.valid()) {
-					_valid = false;
-					return;
-				}
-				if(_iter.curr_idx() > _end_idx || (_iter.curr_idx() == _end_idx && _iter.key() >= _end_key)) {
+				if(is_after_end()) {
 					_valid = false;
 					return;
 				}
 				load_list();
 			}
+		}
+		bool is_after_end() {
+			if(!_iter.valid()) {
+				return true;
+			}
+			if(_iter.curr_idx() > _end_idx || (_iter.curr_idx() == _end_idx && _iter.key() >= _end_key)) {
+				return true;
+			}
+			return false;
 		}
 	};
 
@@ -205,7 +210,7 @@ private:
 		it._end_idx = hash48>>32;
 		it._end_key = (hash48<<32)|uint64_t(end_height);
 		it._iter = m.get_iterator(hash48>>32, (hash48<<32)|uint64_t(start_height));
-		it._valid = it._iter.valid();;
+		it._valid = !it.is_after_end();
 		if(it._valid) {
 			it.load_list();
 		}
