@@ -38,8 +38,8 @@ var Config2 = FuzzConfig{
 }
 
 var DefaultConfig = FuzzConfig{
-	TotalAddressCount: 10,
-	TotalTopicCount:   20,
+	TotalAddressCount: 100,
+	TotalTopicCount:   200,
 	TotalBlocks:       5,
 	MaxLogInTx:        5,
 	MaxTxInBlock:      5,
@@ -209,6 +209,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	}
 	for h := int64(0); h < int64(cfg.TotalBlocks); h++ {
 		blk := GetBlock(rs, h, cfg)
+		//fmt.Printf("Block %#v\n", blk)
 		blkList = append(blkList, blk)
 		if h >= pruneTill {
 			ref.AddBlock(blk, -1)
@@ -292,6 +293,13 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 				break
 			}
 		}
+		fmt.Printf("Now useAddr %v len(log.Topics) %d\n", useAddr, len(log.Topics))
+		if len(refSet) != len(impSet) {
+			fmt.Printf("Query len(refSet) %d != len(impSet) %d for Query\n", len(refSet), len(impSet))
+			//panic("not match")
+		} else {
+			fmt.Printf("Query len equal %d\n", len(refSet))
+		}
 		if !ok {
 			fmt.Printf("refSet: %s\n", mapToSortedStrings(refSet))
 			fmt.Printf("impSet: %s\n", mapToSortedStrings(impSet))
@@ -320,6 +328,15 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 				break
 			}
 		}
+		if len(refSet) != len(impSet) {
+			println("len(refSet) != len(impSet) for QueryTxBySrc")
+		}
+		for tx := range impSet {
+			if res, ok := refSet[tx]; !ok {
+				fmt.Printf("In impSet not in refSet tx %s res %s\n", tx, res)
+				panic("not match")
+			}
+		}
 		if !ok {
 			fmt.Printf("refSet: %s\n", mapToSortedStrings(refSet))
 			fmt.Printf("impSet: %s\n", mapToSortedStrings(impSet))
@@ -341,6 +358,15 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 				break
 			}
 		}
+		for tx := range impSet {
+			if res, ok := refSet[tx]; !ok {
+				fmt.Printf("In impSet not in refSet tx %s res %s\n", tx, res)
+				panic("not match")
+			}
+		}
+		if len(refSet) != len(impSet) {
+			println("len(refSet) != len(impSet) for QueryTxByDst")
+		}
 		assert(ok)
 	}
 	for i := 0; i < cfg.SrcDstQueryCount; i++ {
@@ -354,6 +380,15 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 			if _, ok = impSet[tx]; !ok {
 				break
 			}
+		}
+		for tx := range impSet {
+			if res, ok := refSet[tx]; !ok {
+				fmt.Printf("In impSet not in refSet tx %s res %s\n", tx, res)
+				panic("not match")
+			}
+		}
+		if len(refSet) != len(impSet) {
+			println("len(refSet) != len(impSet) for QueryTxBySrcOrDst")
 		}
 		assert(ok)
 	}

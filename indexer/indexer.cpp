@@ -197,6 +197,9 @@ public:
 			}
 			return false;
 		}
+		void show_pos() {
+			std::cout<<"Idx "<<_iter.curr_idx()<<std::hex<<" key "<<_iter.key()<<std::endl;
+		}
 	};
 
 private:
