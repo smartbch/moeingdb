@@ -14,24 +14,25 @@ import (
 )
 
 /*  Following keys are saved in rocksdb:
-	"HPF_SIZE" the size of hpfile
-	"SEED" seed for xxhash, used to generate short hash
-	"NEW" new block's information for indexing, deleted after consumption
-	"BXXXX" ('B' followed by 4 bytes) the indexing information for a block
+"HPF_SIZE" the size of hpfile
+"SEED" seed for xxhash, used to generate short hash
+"NEW" new block's information for indexing, deleted after consumption
+"BXXXX" ('B' followed by 4 bytes) the indexing information for a block
 */
 
 const (
 	MaxExpandedSize = 64
-	MaxMatchedTx = 50000
+	MaxMatchedTx    = 50000
 )
 
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
 type rwMutex struct {
-	mtx     sync.RWMutex
-	wg      sync.WaitGroup
+	mtx sync.RWMutex
+	wg  sync.WaitGroup
 }
+
 func (mtx *rwMutex) lock() {
 	mtx.wg.Add(1)
 	mtx.mtx.Lock()
@@ -59,6 +60,7 @@ type MoDB struct {
 	seed     [8]byte
 	indexer  indexer.Indexer
 	maxCount int
+	height   int64
 }
 
 var _ types.DB = (*MoDB)(nil)
@@ -134,9 +136,10 @@ func NewMoDB(path string) *MoDB {
 	if err != nil {
 		panic(err)
 	}
+	db.height = blk.Height
 	db.wg.Add(1)
 	go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
-	db.wg.Wait() // wait for goroutine to finish
+	db.wg.Wait()                // wait for goroutine to finish
 	return db
 }
 
@@ -152,11 +155,15 @@ func (db *MoDB) SetMaxEntryCount(c int) {
 	db.maxCount = c
 }
 
+func (db *MoDB) GetLatestHeight() int64 {
+	return db.height
+}
+
 // Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
 // The ownership of 'blk' will be transferred to MoDB and cannot be changed by out world!
 func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
-	if(blk == nil) {
+	if blk == nil {
 		return
 	}
 
@@ -169,6 +176,8 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 		panic(err)
 	}
 	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
+
+	db.height = blk.Height
 
 	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
@@ -186,7 +195,7 @@ func (db *MoDB) appendToFile(data []byte) int64 {
 	if err != nil {
 		panic(err)
 	}
-	return off/32
+	return off / 32
 }
 
 // post-processing after AddBlock
@@ -517,7 +526,7 @@ For example, '(a|b|c) & (d|e) & (f|g)' expands to:
 func expandQueryCondition(addrOrList [][20]byte, topicsOrList [][][32]byte) []addrAndTopics {
 	res := make([]addrAndTopics, 0, MaxExpandedSize)
 	if len(addrOrList) == 0 {
-		res = append(res, addrAndTopics{addr: nil} )
+		res = append(res, addrAndTopics{addr: nil})
 	} else {
 		res = make([]addrAndTopics, 0, len(addrOrList))
 		for i := range addrOrList {
@@ -627,7 +636,6 @@ func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, 
 
 // ===================================
 
-
 // Merge multiple sorted offset lists into one
 func mergeOffLists(offLists [][]int64) []int64 {
 	if len(offLists) == 1 {
@@ -636,7 +644,7 @@ func mergeOffLists(offLists [][]int64) []int64 {
 	res := make([]int64, 0, 1000)
 	for {
 		idx, min := findMinimumFirstElement(offLists)
-		if idx == -1 {// every one in offLists has been consumed
+		if idx == -1 { // every one in offLists has been consumed
 			break
 		}
 		if len(res) == 0 || res[len(res)-1] != min {
@@ -694,7 +702,7 @@ func Padding32(length int) (n int) {
 func GetRealOffset(offset, size int64) int64 {
 	unit := int64(32) << 40 // 32 tera bytes
 	n := size / unit
-	if size % unit == 0 {
+	if size%unit == 0 {
 		n--
 	}
 	offset += n * unit

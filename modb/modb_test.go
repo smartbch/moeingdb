@@ -6,8 +6,8 @@ import (
 	"testing"
 	//"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/moeing-chain/MoeingDB/types"
+	"github.com/stretchr/testify/assert"
 )
 
 type Block = types.Block
@@ -16,13 +16,13 @@ type Log = types.Log
 
 func Test1(t *testing.T) {
 	m := make(map[uint64][]uint32)
-	AppendAtKey(m, 1, 11);
-	AppendAtKey(m, 1, 111);
-	AppendAtKey(m, 1, 1111);
-	AppendAtKey(m, 2, 22);
-	AppendAtKey(m, 2, 222);
-	assert.Equal(t, m[1], []uint32{11,111,1111})
-	assert.Equal(t, m[2], []uint32{22,222})
+	AppendAtKey(m, 1, 11)
+	AppendAtKey(m, 1, 111)
+	AppendAtKey(m, 1, 1111)
+	AppendAtKey(m, 2, 22)
+	AppendAtKey(m, 2, 222)
+	assert.Equal(t, m[1], []uint32{11, 111, 1111})
+	assert.Equal(t, m[2], []uint32{22, 222})
 
 	assert.Equal(t, 0, Padding32(0))
 	assert.Equal(t, 31, Padding32(1))
@@ -42,7 +42,7 @@ func TestDB(t *testing.T) {
 	os.RemoveAll("./test")
 	os.Mkdir("./test", 0700)
 	os.Mkdir("./test/data", 0700)
-	db := CreateEmptyMoDB("./test", [8]byte{1,2,3,4,5,6,7,8})
+	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
 	runDBTest(t, db, true, false)
 	db.Close()
 	db = NewMoDB("./test")
@@ -78,58 +78,58 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 		alice[i] = byte(2)
 	}
 	blk1 := Block{
-		Height: 1,
+		Height:    1,
 		BlockHash: h0,
 		BlockInfo: []byte("block1"),
 		TxList: []Tx{
 			Tx{
-				HashId: h1,
+				HashId:  h1,
 				Content: []byte("Tx1-0"),
 				LogList: []Log{
 					Log{
 						Address: bob,
-						Topics: [][32]byte{t0, t1},
+						Topics:  [][32]byte{t0, t1},
 					},
 				},
 			},
 			Tx{
-				HashId: h2,
+				HashId:  h2,
 				Content: []byte("Tx1-1"),
 				LogList: []Log{
 					Log{
 						Address: alice,
-						Topics: [][32]byte{t1, t2},
+						Topics:  [][32]byte{t1, t2},
 					},
 				},
 			},
 		},
 	}
 	blk2 := Block{
-		Height: 2,
+		Height:    2,
 		BlockHash: h3,
 		BlockInfo: []byte("block2"),
 		TxList: []Tx{
 			Tx{
-				HashId: h4,
+				HashId:  h4,
 				Content: []byte("Tx2-0"),
 				LogList: []Log{
 					Log{
 						Address: alice,
-						Topics: [][32]byte{t0, t2},
+						Topics:  [][32]byte{t0, t2},
 					},
 				},
 			},
 			Tx{
-				HashId: h5,
+				HashId:  h5,
 				Content: []byte("Tx2-1"),
 				LogList: []Log{
 					Log{
 						Address: bob,
-						Topics: [][32]byte{t1},
+						Topics:  [][32]byte{t1},
 					},
 					Log{
 						Address: bob,
-						Topics: [][32]byte{t2},
+						Topics:  [][32]byte{t2},
 					},
 				},
 			},
@@ -148,13 +148,13 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	bz = db.GetBlockByHeight(1000)
 	assert.Equal(t, 0, len(bz))
 	bz = nil
-	db.GetBlockByHash(h0, func(res []byte) bool {bz=res; return true})
+	db.GetBlockByHash(h0, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "block1", string(bz))
 	bz = nil
-	db.GetBlockByHash(h3, func(res []byte) bool {bz=res; return true})
+	db.GetBlockByHash(h3, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "block2", string(bz))
 	bz = nil
-	db.GetBlockByHash(h1, func(res []byte) bool {bz=res; return true})
+	db.GetBlockByHash(h1, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, 0, len(bz))
 
 	bz = db.GetTxByHeightAndIndex(1, 0)
@@ -171,19 +171,19 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	assert.Equal(t, 0, len(bz))
 
 	bz = nil
-	db.GetTxByHash(h1, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h1, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "Tx1-0", string(bz))
 	bz = nil
-	db.GetTxByHash(h2, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h2, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "Tx1-1", string(bz))
 	bz = nil
-	db.GetTxByHash(h4, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h4, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "Tx2-0", string(bz))
 	bz = nil
-	db.GetTxByHash(h5, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h5, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "Tx2-1", string(bz))
 	bz = nil
-	db.GetTxByHash(h0, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h0, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, 0, len(bz))
 
 	var res []byte
@@ -211,27 +211,27 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 		return
 	}
 	blk3 := Block{
-		Height: 3,
+		Height:    3,
 		BlockHash: h6,
 		BlockInfo: []byte("block3"),
 		TxList: []Tx{
 			Tx{
-				HashId: h7,
+				HashId:  h7,
 				Content: []byte("Tx3-0"),
 				LogList: []Log{
 					Log{
 						Address: bob,
-						Topics: [][32]byte{t0, t1},
+						Topics:  [][32]byte{t0, t1},
 					},
 				},
 			},
 			Tx{
-				HashId: h8,
+				HashId:  h8,
 				Content: []byte("Tx3-1"),
 				LogList: []Log{
 					Log{
 						Address: alice,
-						Topics: [][32]byte{t1, t2},
+						Topics:  [][32]byte{t1, t2},
 					},
 				},
 			},
@@ -244,7 +244,7 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	bz = db.GetBlockByHeight(1)
 	assert.Equal(t, 0, len(bz))
 	bz = nil
-	db.GetBlockByHash(h0, func(res []byte) bool {bz=res; return true})
+	db.GetBlockByHash(h0, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, 0, len(bz))
 
 	bz = db.GetTxByHeightAndIndex(1, 0)
@@ -252,16 +252,16 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	bz = db.GetTxByHeightAndIndex(1, 1)
 	assert.Equal(t, 0, len(bz))
 	bz = nil
-	db.GetTxByHash(h1, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h1, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, 0, len(bz))
 	bz = nil
-	db.GetTxByHash(h2, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h2, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, 0, len(bz))
 
 	bz = db.GetBlockByHeight(3)
 	assert.Equal(t, "block3", string(bz))
 	bz = nil
-	db.GetBlockByHash(h6, func(res []byte) bool {bz=res; return true})
+	db.GetBlockByHash(h6, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "block3", string(bz))
 
 	bz = db.GetTxByHeightAndIndex(3, 0)
@@ -269,10 +269,10 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	bz = db.GetTxByHeightAndIndex(3, 1)
 	assert.Equal(t, "Tx3-1", string(bz))
 	bz = nil
-	db.GetTxByHash(h7, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h7, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "Tx3-0", string(bz))
 	bz = nil
-	db.GetTxByHash(h8, func(res []byte) bool {bz=res; return true})
+	db.GetTxByHash(h8, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, "Tx3-1", string(bz))
 
 	res = res[:0]
@@ -324,7 +324,7 @@ func TestOther(t *testing.T) {
 	d[0], e[0], f[0], g[0], x[0], y[0] = 'd', 'e', 'f', 'g', 'x', 'y'
 	t0 := [][32]byte{d, e}
 	t1 := [][32]byte{f, g}
-	aatList := expandQueryCondition([][20]byte{a,b,c}, [][][32]byte{t0})
+	aatList := expandQueryCondition([][20]byte{a, b, c}, [][][32]byte{t0})
 	concatRes := ""
 	for _, aat := range aatList {
 		concatRes += aat.toShortStr() + " "
@@ -356,4 +356,3 @@ func TestOther(t *testing.T) {
 	assert.Equal(t, 1, len(aatList))
 	assert.Equal(t, "adfxy", aatList[0].toShortStr())
 }
-

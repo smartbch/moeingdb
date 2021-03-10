@@ -72,10 +72,10 @@ type BlockIndex struct {
 	BeginOffset  int64    `msg:"bo"`
 	TxPosList    []int64  `msg:"tpl"`
 
-	SrcHashes    []uint64   `msg:"sh"`
-	SrcPosLists  [][]uint32 `msg:"sp"`
-	DstHashes    []uint64   `msg:"dh"`
-	DstPosLists  [][]uint32 `msg:"dp"`
+	SrcHashes   []uint64   `msg:"sh"`
+	SrcPosLists [][]uint32 `msg:"sp"`
+	DstHashes   []uint64   `msg:"dh"`
+	DstPosLists [][]uint32 `msg:"dp"`
 
 	AddrHashes    []uint64   `msg:"ah"`
 	AddrPosLists  [][]uint32 `msg:"ap"`
@@ -86,6 +86,7 @@ type BlockIndex struct {
 // the interface provided by MoeingDB
 type DB interface {
 	Close()
+	GetLatestHeight() int64
 	AddBlock(blk *Block, pruneTillHeight int64)
 	GetBlockByHeight(height int64) []byte
 	GetTxByHeightAndIndex(height int64, index int) []byte

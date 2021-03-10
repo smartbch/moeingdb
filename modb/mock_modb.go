@@ -8,8 +8,9 @@ import (
 )
 
 type MockMoDB struct {
-	mtx     sync.RWMutex
-	blkMap  map[int64]types.Block
+	mtx    sync.RWMutex
+	blkMap map[int64]types.Block
+	height int64
 }
 
 func (db *MockMoDB) Close() {
@@ -18,8 +19,12 @@ func (db *MockMoDB) Close() {
 func (db *MockMoDB) SetMaxEntryCount(c int) {
 }
 
+func (db *MockMoDB) GetLatestHeight() int64 {
+	return db.height
+}
+
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
-	if(blk == nil) {
+	if blk == nil {
 		return
 	}
 	db.mtx.Lock()
@@ -28,6 +33,7 @@ func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 		db.blkMap = make(map[int64]types.Block)
 	}
 	db.blkMap[blk.Height] = blk.Clone()
+	db.height = blk.Height
 }
 
 func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
@@ -151,7 +157,7 @@ func (db *MockMoDB) queryTx(bySrc bool, byDst bool, addr [20]byte, startHeight, 
 		}
 		for _, tx := range blk.TxList {
 			if (bySrc && bytes.Equal(addr[:], tx.SrcAddr[:])) ||
-			   (byDst && bytes.Equal(addr[:], tx.DstAddr[:])) {
+				(byDst && bytes.Equal(addr[:], tx.DstAddr[:])) {
 				needMore := fn(tx.Content)
 				if !needMore {
 					return

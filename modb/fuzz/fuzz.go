@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"strconv"
 	"sort"
+	"strconv"
 
 	"github.com/coinexchain/randsrc"
 
-	"github.com/moeing-chain/MoeingDB/types"
 	"github.com/moeing-chain/MoeingDB/modb"
+	"github.com/moeing-chain/MoeingDB/types"
 )
 
 type FuzzConfig struct {
@@ -77,13 +77,14 @@ func runTest(cfg FuzzConfig) {
 	}
 	roundCount, err := strconv.Atoi(os.Getenv("RANDCOUNT"))
 	if err != nil {
-		panic(err)
+		fmt.Printf("Fuzz test not run. Error when Parsing RANDCOUNT: %#v\n", err)
+		return
 	}
 
 	rs := randsrc.NewRandSrcFromFile(randFilename)
 	initGlobal(rs, cfg)
 	for i := 0; i < roundCount; i++ {
-		if i % 5 == 0 {
+		if i%5 == 0 {
 			fmt.Printf("======== %d ========\n", i)
 		}
 		RunFuzz(rs, cfg)
@@ -201,10 +202,10 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	os.RemoveAll("./test")
 	os.Mkdir("./test", 0700)
 	os.Mkdir("./test/data", 0700)
-	imp := modb.CreateEmptyMoDB("./test", [8]byte{1,2,3,4,5,6,7,8})
+	imp := modb.CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
 	blkList := make([]*types.Block, 0, cfg.TotalBlocks)
 	pruneTill := int64(-1)
-	if rs.GetUint32() % 2 == 1 { // 50% possibility to prune
+	if rs.GetUint32()%2 == 1 { // 50% possibility to prune
 		pruneTill = 1 + (rs.GetInt64() % int64(cfg.TotalBlocks))
 	}
 	for h := int64(0); h < int64(cfg.TotalBlocks); h++ {
@@ -222,7 +223,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	}
 	ref.AddBlock(nil, -1)
 	imp.AddBlock(nil, -1)
-	if rs.GetUint32() % 2 == 1 { // 50% possibility to re-open
+	if rs.GetUint32()%2 == 1 { // 50% possibility to re-open
 		fmt.Printf("Reopen!\n")
 		imp.Close()
 		imp = modb.NewMoDB("./test")
@@ -401,4 +402,3 @@ func PrintBlocks(blkList []*types.Block) {
 		fmt.Printf("The Block %d:\n%#v\n", i, blk)
 	}
 }
-
