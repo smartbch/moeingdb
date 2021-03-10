@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cespare/xxhash"
 	"github.com/moeing-chain/MoeingADS/datatree"
@@ -136,7 +137,6 @@ func NewMoDB(path string) *MoDB {
 	if err != nil {
 		panic(err)
 	}
-	db.height = blk.Height
 	db.wg.Add(1)
 	go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
 	db.wg.Wait()                // wait for goroutine to finish
@@ -156,7 +156,7 @@ func (db *MoDB) SetMaxEntryCount(c int) {
 }
 
 func (db *MoDB) GetLatestHeight() int64 {
-	return db.height
+	return atomic.LoadInt64(&db.height)
 }
 
 // Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
@@ -176,8 +176,6 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 		panic(err)
 	}
 	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
-
-	db.height = blk.Height
 
 	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
@@ -263,6 +261,8 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 		}
 	}
 	db.pruneTillBlock(pruneTillHeight)
+
+	atomic.StoreInt64(&db.height, blk.Height)
 }
 
 // prune in-memory index and hpfile till the block at 'pruneTillHeight' (not included)
