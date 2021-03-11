@@ -40,7 +40,7 @@ var Config2 = FuzzConfig{
 var DefaultConfig = FuzzConfig{
 	TotalAddressCount: 100,
 	TotalTopicCount:   200,
-	TotalBlocks:       5,
+	TotalBlocks:       8,
 	MaxLogInTx:        5,
 	MaxTxInBlock:      5,
 	QueryCount:        20,
@@ -255,6 +255,14 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 			return false
 		})
 		assert(foundIt)
+		refTxList := ref.GetTxListByHeight(int64(h))
+		impTxList := imp.GetTxListByHeight(int64(h))
+		assert(len(refTxList) == len(impTxList))
+		for i, tx := range refTxList {
+			if !bytes.Equal(impTxList[i], tx) {
+				panic(fmt.Sprintf("Mismatch %d ref %s imp %s", i, string(impTxList[i]), string(tx)))
+			}
+		}
 		for idx, tx := range blk.TxList {
 			assert(bytes.Equal(imp.GetTxByHeightAndIndex(int64(h), idx), tx.Content))
 			assert(bytes.Equal(ref.GetTxByHeightAndIndex(int64(h), idx), tx.Content))
@@ -294,12 +302,10 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 				break
 			}
 		}
-		fmt.Printf("Now useAddr %v len(log.Topics) %d\n", useAddr, len(log.Topics))
+		//fmt.Printf("Now useAddr %v len(log.Topics) %d\n", useAddr, len(log.Topics))
 		if len(refSet) != len(impSet) {
 			fmt.Printf("Query len(refSet) %d != len(impSet) %d for Query\n", len(refSet), len(impSet))
-			//panic("not match")
-		} else {
-			fmt.Printf("Query len equal %d\n", len(refSet))
+			panic("not match")
 		}
 		if !ok {
 			fmt.Printf("refSet: %s\n", mapToSortedStrings(refSet))

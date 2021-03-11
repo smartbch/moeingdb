@@ -40,7 +40,9 @@ struct bits24_list {
 
 inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec) {
 	if(i64_vec->size() == 1) {
-		return i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
+		auto res = i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
+		delete i64_vec;
+		return res;
 	}
 	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
 }
@@ -357,7 +359,7 @@ i64_list indexer::offsets_by_tx_id_range(uint64_t start_id56, uint64_t end_id56)
 		}
 		i64_vec->push_back(iter.value().to_int64());
 	}
-	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
+	return vec_to_i64_list(i64_vec);
 }
 
 // given a transaction's hash48, return its offset
