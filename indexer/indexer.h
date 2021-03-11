@@ -47,6 +47,7 @@ extern "C" {
 	int64_t indexer_offset_by_block_height(size_t ptr, uint32_t height);
 	struct i64_list indexer_offsets_by_block_hash(size_t ptr, uint64_t hash48);
 	int64_t indexer_offset_by_tx_id(size_t ptr, uint64_t id56);
+	struct i64_list indexer_offsets_by_tx_id_range(size_t ptr, uint64_t start_id56, uint64_t end_id56);
 	struct i64_list indexer_offsets_by_tx_hash(size_t ptr, uint64_t hash48);
 
 	// source (from address) and destination (to address) of transactions

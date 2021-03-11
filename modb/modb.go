@@ -461,6 +461,20 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	return db.readInFile(offset40)
 }
 
+// given a blocks's height, return serialized information of its transactions.
+func (db *MoDB) GetTxListByHeight(height int64) [][]byte {
+	db.mtx.rLock()
+	defer db.mtx.rUnlock()
+	id56Start := GetId56(uint32(height), 0)
+	id56End := GetId56(uint32(height+1), 0)
+	offList := db.indexer.GetOffsetsByTxIDRange(id56Start, id56End)
+	res := make([][]byte, len(offList))
+	for i, offset40 := range offList {
+		res[i] = db.readInFile(offset40)
+	}
+	return res
+}
+
 // given a block's hash, feed possibly-correct serialized information to collectResult; if
 // collectResult confirms the information is correct by returning true, this function stops loop.
 func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {

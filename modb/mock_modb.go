@@ -61,6 +61,21 @@ func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	return nil
 }
 
+func (db *MockMoDB) GetTxListByHeight(height int64) (res [][]byte) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
+	for _, blk := range db.blkMap {
+		if blk.Height == height {
+			res = make([][]byte, len(blk.TxList))
+			for i, tx := range blk.TxList {
+				res[i] = tx.Content
+			}
+			break
+		}
+	}
+	return
+}
+
 func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()

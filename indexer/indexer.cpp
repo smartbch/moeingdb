@@ -101,6 +101,7 @@ public:
 	void add_tx(uint64_t id56, uint64_t hash48, int64_t offset40);
 	void erase_tx(uint64_t id56, uint64_t hash48, int64_t offset40);
 	int64_t offset_by_tx_id(uint64_t id56);
+	i64_list offsets_by_tx_id_range(uint64_t start_id56, uint64_t end_id56);
 	i64_list offsets_by_tx_hash(uint64_t hash48);
 
 	void add_to_log_map(log_map& m, uint64_t hash48, uint32_t height, uint32_t* index_ptr, int index_count);
@@ -344,6 +345,21 @@ int64_t indexer::offset_by_tx_id(uint64_t id56) {
 	return off.to_int64();
 }
 
+// given a range of transactions' 56-bit start_id and end_id, return their offsets
+i64_list indexer::offsets_by_tx_id_range(uint64_t start_id56, uint64_t end_id56) {
+	auto i64_vec = new std::vector<int64_t>;
+	auto end_key = bits40::from_uint64(end_id56).to_int64();
+	for(auto iter = tx_id2pos_map.get_iterator(start_id56>>40, bits40::from_uint64(start_id56));
+	iter.valid(); iter.next()) {
+		if(iter.curr_idx() > (end_id56>>40) || 
+		  (iter.curr_idx() == (end_id56>>40) && iter.key().to_int64() >= end_key)) {
+			break;
+		}
+		i64_vec->push_back(iter.value().to_int64());
+	}
+	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
+}
+
 // given a transaction's hash48, return its offset
 i64_list indexer::offsets_by_tx_hash(uint64_t hash48) {
 	auto vec = tx_hash2pos_map.get(hash48>>32, bits32::from_uint64(hash48));
@@ -470,6 +486,10 @@ void indexer_erase_tx(size_t ptr, uint64_t id56, uint64_t hash48, int64_t offset
 
 int64_t indexer_offset_by_tx_id(size_t ptr, uint64_t id56) {
 	return ((indexer*)ptr)->offset_by_tx_id(id56);
+}
+
+i64_list indexer_offsets_by_tx_id_range(size_t ptr, uint64_t start_id56, uint64_t end_id56) {
+	return ((indexer*)ptr)->offsets_by_tx_id_range(start_id56, end_id56);
 }
 
 i64_list indexer_offsets_by_tx_hash(size_t ptr, uint64_t hash48) {
