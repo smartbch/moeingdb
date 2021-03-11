@@ -39,7 +39,11 @@ struct bits24_list {
 };
 
 inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec) {
-	if(i64_vec->size() == 1) {
+	if(i64_vec->size() == 0) {
+		auto res = i64_list{.vec_ptr=size_t(0), .data=nullptr, .size=0};
+		delete i64_vec;
+		return res;
+	} else if(i64_vec->size() == 1) {
 		auto res = i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
 		delete i64_vec;
 		return res;
