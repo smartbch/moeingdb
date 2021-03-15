@@ -322,7 +322,7 @@ i64_list indexer::offsets_by_block_hash(uint64_t hash48) {
 		return i64_list{.vec_ptr=size_t(off), .data=nullptr, .size=1};
 	}
 	auto i64_vec = new std::vector<int64_t>;
-	for(int i = 0; i < vec.size(); i++) {
+	for(int i = 0; i < int(vec.size()); i++) {
 		i64_vec->push_back(offset_by_block_height(vec[i]));
 	}
 	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
@@ -357,8 +357,8 @@ i64_list indexer::offsets_by_tx_id_range(uint64_t start_id56, uint64_t end_id56)
 	auto end_key = bits40::from_uint64(end_id56).to_int64();
 	for(auto iter = tx_id2pos_map.get_iterator(start_id56>>40, bits40::from_uint64(start_id56));
 	iter.valid(); iter.next()) {
-		if(iter.curr_idx() > (end_id56>>40) || 
-		  (iter.curr_idx() == (end_id56>>40) && iter.key().to_int64() >= end_key)) {
+		if(iter.curr_idx() > int(end_id56>>40) || 
+		  (iter.curr_idx() == int(end_id56>>40) && iter.key().to_int64() >= end_key)) {
 			break;
 		}
 		i64_vec->push_back(iter.value().to_int64());
@@ -375,7 +375,7 @@ i64_list indexer::offsets_by_tx_hash(uint64_t hash48) {
 		return i64_list{.vec_ptr=size_t(vec[0].to_uint64()), .data=nullptr, .size=1};
 	}
 	auto i64_vec = new std::vector<int64_t>;
-	for(int i = 0; i < vec.size(); i++) {
+	for(int i = 0; i < int(vec.size()); i++) {
 		i64_vec->push_back(vec[i].to_int64());
 	}
 	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
@@ -405,7 +405,7 @@ void indexer::add_to_log_map(log_map& m, uint64_t hash48, uint32_t height, uint3
 // the iterators in vector are all valid
 bool iters_all_valid(std::vector<indexer::tx_iterator>& iters) {
 	assert(iters.size() != 0);
-	for(int i=0; i<iters.size(); i++) {
+	for(int i=0; i < int(iters.size()); i++) {
 		if(!iters[i].valid()) return false;
 	}
 	return true;
@@ -414,7 +414,7 @@ bool iters_all_valid(std::vector<indexer::tx_iterator>& iters) {
 // the iterators in vector are all pointing to same value
 bool iters_value_all_equal(std::vector<indexer::tx_iterator>& iters) {
 	assert(iters.size() != 0);
-	for(int i=1; i<iters.size(); i++) {
+	for(int i=1; i < int(iters.size()); i++) {
 		if(iters[i].value() != iters[0].value()) return false;
 	}
 	return true;
@@ -434,7 +434,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
 	}
 	for(int count = 0; iters_all_valid(iters) && count < max_offset_count; count++) {
-		for(int i=1; i<iters.size(); i++) {
+		for(int i=1; i < int(iters.size()); i++) {
 			while(iters[i].valid() && iters[i].value() < iters[0].value()) {
 				iters[i].next(); //all the others mutch catch up with iters[0]
 			}
@@ -442,7 +442,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 		if(!iters_all_valid(iters)) break;
 		if(iters_value_all_equal(iters)) { // found a matching tx
 			i64_vec->push_back(offset_by_tx_id(iters[0].value()));
-			for(int i=0; i<iters.size(); i++) {
+			for(int i=0; i < int(iters.size()); i++) {
 				iters[i].next();
 			}
 		} else {
