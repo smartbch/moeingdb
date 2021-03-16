@@ -7,11 +7,11 @@ import (
 	"sync/atomic"
 
 	"github.com/cespare/xxhash"
-	"github.com/smartbch/MoeingADS/datatree"
-	"github.com/smartbch/MoeingADS/indextree"
+	"github.com/smartbch/moeingads/datatree"
+	"github.com/smartbch/moeingads/indextree"
 
-	"github.com/smartbch/MoeingDB/indexer"
-	"github.com/smartbch/MoeingDB/types"
+	"github.com/smartbch/moeingdb/indexer"
+	"github.com/smartbch/moeingdb/types"
 )
 
 /*  Following keys are saved in rocksdb:

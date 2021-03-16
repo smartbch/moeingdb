@@ -6,7 +6,7 @@ import (
 	"testing"
 	//"time"
 
-	"github.com/smartbch/MoeingDB/types"
+	"github.com/smartbch/moeingdb/types"
 	"github.com/stretchr/testify/assert"
 )
 
