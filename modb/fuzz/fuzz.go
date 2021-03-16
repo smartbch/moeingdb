@@ -9,8 +9,8 @@ import (
 
 	"github.com/coinexchain/randsrc"
 
-	"github.com/moeing-chain/MoeingDB/modb"
-	"github.com/moeing-chain/MoeingDB/types"
+	"github.com/smartbch/MoeingDB/modb"
+	"github.com/smartbch/MoeingDB/types"
 )
 
 type FuzzConfig struct {

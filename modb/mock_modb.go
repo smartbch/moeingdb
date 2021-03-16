@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"sync"
 
-	"github.com/moeing-chain/MoeingDB/types"
+	"github.com/smartbch/MoeingDB/types"
 )
 
 type MockMoDB struct {
