@@ -83,9 +83,12 @@ type BlockIndex struct {
 	TopicPosLists [][]uint32 `msg:"tp"`
 }
 
+type ExtractNotificationFromTxFn func (tx Tx, notiMap map[string]int64)
+
 // the interface provided by MoeingDB
 type DB interface {
 	Close()
+	SetExtractNotificationFn(fn ExtractNotificationFromTxFn)
 	GetLatestHeight() int64
 	AddBlock(blk *Block, pruneTillHeight int64)
 	GetBlockByHeight(height int64) []byte
@@ -98,6 +101,8 @@ type DB interface {
 	QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
 	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	QueryNotificationCounter(key []byte) int64
+
 	// This function's parameter limits these functions' returned entry count: BasicQueryLogs, QueryLogs, QueryTxBySrc, QueryTxByDst, QueryTxBySrcOrDst
 	SetMaxEntryCount(c int)
 }

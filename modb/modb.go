@@ -19,11 +19,13 @@ import (
 "SEED" seed for xxhash, used to generate short hash
 "NEW" new block's information for indexing, deleted after consumption
 "BXXXX" ('B' followed by 4 bytes) the indexing information for a block
+"N------" ('N' followed by variable-length bytes) the notification counters
 */
 
 const (
-	MaxExpandedSize = 64
-	MaxMatchedTx    = 50000
+	MaxExpandedSize      = 64
+	MaxMatchedTx         = 50000
+	DB_PARA_READ_THREADS = 8
 )
 
 type RocksDB = indextree.RocksDB
@@ -62,6 +64,8 @@ type MoDB struct {
 	indexer  indexer.Indexer
 	maxCount int
 	height   int64
+	//For the notify counters
+	extractNotificationFromTx types.ExtractNotificationFromTxFn
 }
 
 var _ types.DB = (*MoDB)(nil)
@@ -237,6 +241,7 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 
 	db.metadb.OpenNewBatch()
+	db.updateNotificationCounters(blk)
 	// save the index information to metadb, such that we can later recover and prune in-memory index
 	var err error
 	db.idxBuf, err = blkIdx.MarshalMsg(db.idxBuf[:0])
@@ -263,6 +268,48 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.pruneTillBlock(pruneTillHeight)
 
 	atomic.StoreInt64(&db.height, blk.Height)
+}
+
+
+func (db *MoDB) SetExtractNotificationFn(fn types.ExtractNotificationFromTxFn) {
+	db.extractNotificationFromTx = fn
+}
+
+func (db *MoDB) updateNotificationCounters(blk *types.Block) {
+	if db.extractNotificationFromTx == nil {
+		return
+	}
+	notiMap := make(map[string]int64, len(blk.TxList)*2)
+	for _, tx := range blk.TxList {
+		db.extractNotificationFromTx(tx, notiMap)
+	}
+	notiStrList := make([]string, 0, len(notiMap))
+	notiCountList := make([]int64, 0, len(notiMap))
+	for notiStr, notiCount := range notiMap {
+		notiStrList = append(notiStrList, notiStr)
+		notiCountList = append(notiCountList, notiCount)
+	}
+	sharedIdx := int64(-1)
+	parallelRun(DB_PARA_READ_THREADS, func(_ int) {
+		for {
+			myIdx := atomic.AddInt64(&sharedIdx, 1)
+			if myIdx >= int64(len(notiStrList)) {
+				return
+			}
+			k := append([]byte{'N'}, notiStrList[myIdx]...)
+			bz := db.metadb.Get(k)
+			value := int64(0)
+			if len(bz) != 0 {
+				value = int64(binary.LittleEndian.Uint64(bz))
+			}
+			notiCountList[myIdx] += value
+		}
+	})
+	for i, notiStr := range notiStrList {
+		var bz [8]byte
+		binary.LittleEndian.PutUint64(bz[:], uint64(notiCountList[i]))
+		db.metadb.CurrBatch().Set(append([]byte{'N'}, notiStr...), bz[:])
+	}
 }
 
 // prune in-memory index and hpfile till the block at 'pruneTillHeight' (not included)
@@ -648,6 +695,14 @@ func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, 
 	db.runFnAtTxs(offList, fn)
 }
 
+func (db *MoDB) QueryNotificationCounter(key []byte) int64 {
+	bz := db.metadb.Get(append([]byte{'N'}, key...))
+	if len(bz) == 0 {
+		return 0;
+	}
+	return int64(binary.LittleEndian.Uint64(bz))
+}
+
 // ===================================
 
 // Merge multiple sorted offset lists into one
@@ -729,3 +784,17 @@ func GetRealOffset(offset, size int64) int64 {
 func GetId56(height uint32, i int) uint64 {
 	return (uint64(height) << 24) | uint64(i)
 }
+
+func parallelRun(workerCount int, fn func(workerID int)) {
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go func(i int) {
+			fn(i)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
+
