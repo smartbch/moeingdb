@@ -196,9 +196,12 @@ public:
 				load_list();
 			}
 		}
-		void seek(uint64_t value) {
+		void next_till_value(uint64_t value) {
+			if(this->value() >= value) {
+				return;
+			}
 			uint32_t height = value >> 24;
-			uint64_t key = ((_end_key>>32)<<32)|uint64_t(height); // embed the target height
+			uint64_t key = ((_end_key>>32)<<32)|uint64_t(height); // switch the target height
 			_iter = _log_map->get_iterator(_end_idx, key);
 			_valid = !is_after_end();
 			if(_valid) {
@@ -466,7 +469,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 			}
 		} else {
 			for(int i=0; i < int(iters.size()); i++) {
-				iters[i].seek(max_value);
+				iters[i].next_till_value(max_value);
 			}
 		}
 	}
