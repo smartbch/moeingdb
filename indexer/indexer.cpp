@@ -145,12 +145,13 @@ public:
 	// iterator over tx's id56
 	class tx_iterator {
 		bool        _valid;
-		indexer*    _parent; 
+		indexer*    _parent;
 		int         _end_idx;
 		uint64_t    _end_key;
 		bits24_list _curr_list; //current block's bits24_list
 		int         _curr_list_idx; //pointing to an element in _curr_list.data
 		typename log_map::iterator _iter;
+		log_map* _log_map;
 		void load_list() {//fill data to _curr_list
 			_curr_list_idx = 0;
 			auto magic_u64 = _iter.value();
@@ -195,6 +196,18 @@ public:
 				load_list();
 			}
 		}
+		void seek(uint64_t value) {
+			uint32_t height = value >> 24;
+			uint64_t key = ((_end_key>>32)<<32)|uint64_t(height); // embed the target height
+			_iter = _log_map->get_iterator(_end_idx, key);
+			_valid = !is_after_end();
+			if(_valid) {
+				load_list();
+				while(this->value() < value) {
+					next();
+				}
+			}
+		}
 		bool is_after_end() {
 			if(!_iter.valid()) {
 				return true;
@@ -220,6 +233,7 @@ private:
 		it._end_idx = hash48>>32;
 		it._end_key = (hash48<<32)|uint64_t(end_height);
 		it._iter = m.get_iterator(hash48>>32, (hash48<<32)|uint64_t(start_height));
+		it._log_map = &m;
 		it._valid = !it.is_after_end();
 		if(it._valid) {
 			it.load_list();
@@ -411,18 +425,26 @@ bool iters_all_valid(std::vector<indexer::tx_iterator>& iters) {
 	return true;
 }
 
-// the iterators in vector are all pointing to same value
-bool iters_value_all_equal(std::vector<indexer::tx_iterator>& iters) {
+// *max_value will be the maximum one of the values pointing to by the iterators
+// returns true if all the iterators in vector are all pointing to this maximum value
+// note: the iterators must be all valid
+bool iters_value_all_equal_max_value(std::vector<indexer::tx_iterator>& iters, uint64_t *max_value) {
 	assert(iters.size() != 0);
+	*max_value = iters[0].value();
+	bool all_equal = true;
 	for(int i=1; i < int(iters.size()); i++) {
-		if(iters[i].value() != iters[0].value()) return false;
+		if(iters[i].value() != *max_value) {
+			all_equal = false;
+		}
+		if(iters[i].value() > *max_value) {
+			*max_value = iters[i].value();
+		}
 	}
-	return true;
+	return all_equal;
 }
 
 // given query condition 'q', query a list of offsets for transactions
 i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
-	auto i64_vec = new std::vector<int64_t>;
 	std::vector<indexer::tx_iterator> iters;
 	if(q.addr_hash>>48 == 0) {// only consider valid hash
 		iters.push_back(addr_iterator(q.addr_hash, q.start_height, q.end_height));
@@ -433,20 +455,19 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 	if(iters.size() == 0) {
 		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
 	}
+	auto i64_vec = new std::vector<int64_t>;
 	for(int count = 0; iters_all_valid(iters) && count < max_offset_count; count++) {
-		for(int i=1; i < int(iters.size()); i++) {
-			while(iters[i].valid() && iters[i].value() < iters[0].value()) {
-				iters[i].next(); //all the others mutch catch up with iters[0]
-			}
-		}
-		if(!iters_all_valid(iters)) break;
-		if(iters_value_all_equal(iters)) { // found a matching tx
+		uint64_t max_value;
+		bool all_equal = iters_value_all_equal_max_value(iters, &max_value);
+		if(all_equal) { // found a matching tx
 			i64_vec->push_back(offset_by_tx_id(iters[0].value()));
 			for(int i=0; i < int(iters.size()); i++) {
 				iters[i].next();
 			}
 		} else {
-			iters[0].next();
+			for(int i=0; i < int(iters.size()); i++) {
+				iters[i].seek(max_value);
+			}
 		}
 	}
 	return vec_to_i64_list(i64_vec);

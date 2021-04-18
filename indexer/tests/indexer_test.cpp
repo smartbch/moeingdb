@@ -73,11 +73,11 @@ TEST_CASE( "log is tested", "[log]" ) {
 	idx.add_block(2, 0xFF, 0xE12345678E);
 	uint32_t a[10];
 	a[0]=1; a[1]=3; a[2]=5; a[3]=7; a[4]=9;
-	idx.add_addr2log(0x123456789ABC, 1, a, 5);
+	idx.add_addr2tx(0x123456789ABC, 1, a, 5);
 	bits24_vec* b24v = idx.get_vec_at_height(1, false);
 	REQUIRE(b24v != nullptr);
 	a[0]=2; a[1]=4; a[2]=6;
-	idx.add_addr2log(0x123456789ABC, 2, a, 3);
+	idx.add_addr2tx(0x123456789ABC, 2, a, 3);
 	std::vector<indexer::tx_iterator> vec;
 	vec.push_back(idx.addr_iterator(0x123456789ABC, 1, 3));
 	vec.push_back(idx.addr_iterator(0x123456789ABC, 0, 3));
@@ -100,8 +100,8 @@ TEST_CASE( "log is tested", "[log]" ) {
 
 	idx.add_block(3, 0x88, 0xEEE345678E);
 	a[0]=7; a[1]=9; a[2]=12; a[3]=13;
-	idx.add_topic2log(0x23456789ABC1, 1, a, 4);
-	idx.add_topic2log(0x23456789ABC1, 3, a, 4);
+	idx.add_topic2tx(0x23456789ABC1, 1, a, 4);
+	idx.add_topic2tx(0x23456789ABC1, 3, a, 4);
 	auto it = idx.topic_iterator(0x23456789ABC1, 1, 4);
 	REQUIRE(it.valid() == true);
 	REQUIRE(it.value() == ((1<<24)|7)); it.next();
@@ -115,9 +115,9 @@ TEST_CASE( "log is tested", "[log]" ) {
 	REQUIRE(it.valid() == false);
 
 	a[0]=7; a[1]=9;
-	idx.add_topic2log(0xC3456789ABC1, 1, a, 2);
+	idx.add_topic2tx(0xC3456789ABC1, 1, a, 2);
 	a[0]=9; a[1]=10; a[2]=11; a[3]=12; a[4]=13; a[5]=14; a[6]=15; a[7]=16; a[8]=17;
-	idx.add_topic2log(0xC3456789ABC1, 3, a, 9);
+	idx.add_topic2tx(0xC3456789ABC1, 3, a, 9);
 
 	idx.add_tx(((1<<24)|1), 0x214365879AB1, 100);
 	idx.add_tx(((1<<24)|3), 0x214365879AB3, 300);
@@ -182,7 +182,7 @@ TEST_CASE( "log is tested", "[log]" ) {
 	REQUIRE(res.data[6] == 1200);
 	REQUIRE(res.data[7] == 1300);
 
-	idx.erase_addr2log(0x123456789ABC, 1);
+	idx.erase_addr2tx(0x123456789ABC, 1);
 	q.addr_hash = 0x123456789ABC;
 	q.topic_count = 0;
 	res = idx.query_tx_offsets(q);
@@ -191,7 +191,7 @@ TEST_CASE( "log is tested", "[log]" ) {
 	REQUIRE(res.data[1] == 400);
 	REQUIRE(res.data[2] == 600);
 
-	idx.erase_topic2log(0x23456789ABC1, 1);
+	idx.erase_topic2tx(0x23456789ABC1, 1);
 	q.topic_hash[0] = 0x23456789ABC1;
 	q.topic_count = 1;
 	q.addr_hash = uint64_t(1)<<63;
