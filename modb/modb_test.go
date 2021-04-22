@@ -356,3 +356,127 @@ func TestOther(t *testing.T) {
 	assert.Equal(t, 1, len(aatList))
 	assert.Equal(t, "adfxy", aatList[0].toShortStr())
 }
+
+func TestNotificationCounter(t *testing.T) {
+	os.RemoveAll("./test")
+	os.Mkdir("./test", 0700)
+	os.Mkdir("./test/data", 0700)
+	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
+	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
+	var h0, h1, h2, h3, h4, h5, h6, h7, h8 [32]byte
+	var t0, t1, t2 [32]byte
+	for i := range h0 {
+		h0[i] = byte(i)
+		h1[i] = byte(i + 1)
+		h2[i] = byte(i + 2)
+		h3[i] = byte(i + 3)
+		h4[i] = byte(i + 4)
+		h5[i] = byte(i + 5)
+		h6[i] = byte(i + 6)
+		h7[i] = byte(i + 7)
+		h8[i] = byte(i + 8)
+		t0[i] = byte(i + 10)
+		t1[i] = byte(i + 11)
+		t2[i] = byte(i + 12)
+	}
+	var bob, alice, cindy [20]byte
+	var bob32, alice32, cindy32 [32]byte
+	for i := range bob {
+		bob[i] = byte(1)
+		bob32[i] = byte(1)
+		alice[i] = byte(2)
+		alice32[i] = byte(2)
+		cindy[i] = byte(3)
+		cindy32[i] = byte(3)
+	}
+	blk1 := Block{
+		Height:    1,
+		BlockHash: h0,
+		BlockInfo: []byte("block1"),
+		TxList: []Tx{
+			Tx{
+				HashId:  h1,
+				Content: []byte("Tx1-0"),
+				SrcAddr: alice,
+				DstAddr: bob,
+				LogList: []Log{
+					Log{
+						Address: bob,
+						Topics:  [][32]byte{types.TransferEvent, cindy32, bob32},
+					},
+				},
+			},
+			Tx{
+				HashId:  h2,
+				Content: []byte("Tx1-1"),
+				SrcAddr: bob,
+				DstAddr: cindy,
+				LogList: []Log{
+					Log{
+						Address: alice,
+						Topics:  [][32]byte{types.TransferEvent, bob32, alice32},
+					},
+				},
+			},
+		},
+	}
+	blk2 := Block{
+		Height:    2,
+		BlockHash: h3,
+		BlockInfo: []byte("block2"),
+		TxList: []Tx{
+			Tx{
+				HashId:  h4,
+				Content: []byte("Tx2-0"),
+				SrcAddr: alice,
+				DstAddr: cindy,
+				LogList: []Log{
+					Log{
+						Address: bob,
+						Topics:  [][32]byte{types.TransferEvent, cindy32, alice32},
+					},
+				},
+			},
+			Tx{
+				HashId:  h5,
+				Content: []byte("Tx2-1"),
+				SrcAddr: bob,
+				DstAddr: cindy,
+				LogList: []Log{
+					Log{
+						Address: bob,
+						Topics:  [][32]byte{types.TransferEvent, bob32, cindy32},
+					},
+				},
+			},
+		},
+	}
+	db.AddBlock(&blk1, -1)
+	db.AddBlock(&blk2, -1)
+	db.AddBlock(nil, -1)
+	to_alice := append([]byte{types.TO_ADDR_KEY}, alice[:]...)
+	to_bob := append([]byte{types.TO_ADDR_KEY}, bob[:]...)
+	to_cindy := append([]byte{types.TO_ADDR_KEY}, cindy[:]...)
+	at_bob_from_bob := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, bob[:]...), bob32[:]...)
+	at_bob_from_cindy := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, bob[:]...), cindy32[:]...)
+	at_bob_to_bob := append(append([]byte{types.TRANS_TO_ADDR_KEY}, bob[:]...), bob32[:]...)
+	at_bob_to_alice := append(append([]byte{types.TRANS_TO_ADDR_KEY}, bob[:]...), alice32[:]...)
+	at_bob_to_cindy := append(append([]byte{types.TRANS_TO_ADDR_KEY}, bob[:]...), cindy32[:]...)
+	at_alice_from_bob := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, alice[:]...), bob32[:]...)
+	at_alice_to_alice := append(append([]byte{types.TRANS_TO_ADDR_KEY}, alice[:]...), alice32[:]...)
+	at_alice_from_cindy := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, alice[:]...), cindy32[:]...)
+	at_alice_to_cindy := append(append([]byte{types.TRANS_TO_ADDR_KEY}, alice[:]...), cindy32[:]...)
+	assert.Equal(t, int64(0), db.QueryNotificationCounter(to_alice))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(to_bob))
+	assert.Equal(t, int64(3), db.QueryNotificationCounter(to_cindy))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(at_bob_from_bob))
+	assert.Equal(t, int64(2), db.QueryNotificationCounter(at_bob_from_cindy))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(at_bob_to_bob))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(at_bob_to_alice))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(at_bob_to_cindy))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(at_alice_from_bob))
+	assert.Equal(t, int64(1), db.QueryNotificationCounter(at_alice_to_alice))
+	assert.Equal(t, int64(0), db.QueryNotificationCounter(at_alice_from_cindy))
+	assert.Equal(t, int64(0), db.QueryNotificationCounter(at_alice_to_cindy))
+	db.Close()
+}

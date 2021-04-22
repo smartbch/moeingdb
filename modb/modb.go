@@ -837,11 +837,9 @@ func parallelRun(workerCount int, fn func(workerID int)) {
 
 //================================
 
-var TransferEvent = []byte{0xef, 0xb3, 0x23, 0xf5, 0x4d, 0x5a, 0xf5, 0x28, 0x16, 0xa1, 0xc4, 0x63, 0xf1, 0xa7, 0x2b, 0x95, 0xaa, 0x8d, 0x37, 0xfc, 0x68, 0xb0, 0xc2, 0x69, 0x9b, 0xc8, 0xe2, 0x1b, 0xad, 0x52, 0xf2, 0xdd}
-
-// 10: To-address of TX
-// 11: From-address of SEP20-Transfer
-// 12: To-address of SEP20-Transfer
+// To-address of TX
+// From-address of SEP20-Transfer
+// To-address of SEP20-Transfer
 func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 	var addToMap = func(k string) {
 		if _, ok := notiMap[k]; ok {
@@ -850,15 +848,15 @@ func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 			notiMap[k] = 1
 		}
 	}
-	k := append([]byte{10}, tx.DstAddr[:]...)
+	k := append([]byte{types.TO_ADDR_KEY}, tx.DstAddr[:]...)
 	addToMap(string(k))
 	for _, log := range tx.LogList {
-		if len(log.Topics) != 3 || !bytes.Equal(log.Topics[0][:], TransferEvent[:]) {
+		if len(log.Topics) != 3 || !bytes.Equal(log.Topics[0][:], types.TransferEvent[:]) {
 			continue
 		}
-		k := append(append([]byte{11}, log.Address[:]...), log.Topics[1][:]...)
+		k := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, log.Address[:]...), log.Topics[1][:]...)
 		addToMap(string(k))
-		k = append(append([]byte{12}, log.Address[:]...), log.Topics[2][:]...)
+		k = append(append([]byte{types.TRANS_TO_ADDR_KEY}, log.Address[:]...), log.Topics[2][:]...)
 		addToMap(string(k))
 	}
 }
