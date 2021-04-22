@@ -362,7 +362,6 @@ func TestNotificationCounter(t *testing.T) {
 	os.Mkdir("./test", 0700)
 	os.Mkdir("./test/data", 0700)
 	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
-	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
 	var h0, h1, h2, h3, h4, h5, h6, h7, h8 [32]byte
 	var t0, t1, t2 [32]byte
 	for i := range h0 {

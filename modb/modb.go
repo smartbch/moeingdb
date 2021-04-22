@@ -97,6 +97,7 @@ func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
 		seed:    seed,
 		indexer: indexer.New(),
 	}
+	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
 	var zero [8]byte
 	db.metadb.OpenNewBatch()
 	db.metadb.CurrBatch().Set([]byte("HPF_SIZE"), zero[:])
@@ -124,6 +125,7 @@ func NewMoDB(path string) *MoDB {
 		indexer:  indexer.New(),
 		maxCount: -1,
 	}
+	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
 	// for a half-committed block, hpfile may have some garbage after the position
 	// marked by HPF_SIZE
 	bz := db.metadb.Get([]byte("HPF_SIZE"))
@@ -298,7 +300,7 @@ func (db *MoDB) SetDisableComplexIndex(b bool) {
 }
 
 func (db *MoDB) updateNotificationCounters(blk *types.Block) {
-	if db.extractNotificationFromTx == nil {
+	if db.extractNotificationFromTx == nil || db.disableComplexIndex {
 		return
 	}
 	notiMap := make(map[string]int64, len(blk.TxList)*2)
