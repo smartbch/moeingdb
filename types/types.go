@@ -67,6 +67,7 @@ type IndexEntry struct {
 // erase the index when this block is considered too old.
 type BlockIndex struct {
 	Height       uint32   `msg:"ht"`
+	BlockHash    [32]byte `msg:"bH"`
 	BlockHash48  uint64   `msg:"bh"`
 	TxHash48List []uint64 `msg:"thl"`
 	BeginOffset  int64    `msg:"bo"`
@@ -89,8 +90,10 @@ type ExtractNotificationFromTxFn func (tx Tx, notiMap map[string]int64)
 type DB interface {
 	Close()
 	SetExtractNotificationFn(fn ExtractNotificationFromTxFn)
+	SetDisableComplexIndex(b bool)
 	GetLatestHeight() int64
 	AddBlock(blk *Block, pruneTillHeight int64)
+	GetBlockHashByHeight(height int64) [32]byte
 	GetBlockByHeight(height int64) []byte
 	GetTxByHeightAndIndex(height int64, index int) []byte
 	GetTxListByHeight(height int64) [][]byte

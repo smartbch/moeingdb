@@ -251,6 +251,12 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Height")
 				return
 			}
+		case "bH":
+			err = dc.ReadExactBytes((z.BlockHash)[:])
+			if err != nil {
+				err = msgp.WrapError(err, "BlockHash")
+				return
+			}
 		case "bh":
 			z.BlockHash48, err = dc.ReadUint64()
 			if err != nil {
@@ -269,10 +275,10 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.TxHash48List = make([]uint64, zb0002)
 			}
-			for za0001 := range z.TxHash48List {
-				z.TxHash48List[za0001], err = dc.ReadUint64()
+			for za0002 := range z.TxHash48List {
+				z.TxHash48List[za0002], err = dc.ReadUint64()
 				if err != nil {
-					err = msgp.WrapError(err, "TxHash48List", za0001)
+					err = msgp.WrapError(err, "TxHash48List", za0002)
 					return
 				}
 			}
@@ -294,10 +300,10 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.TxPosList = make([]int64, zb0003)
 			}
-			for za0002 := range z.TxPosList {
-				z.TxPosList[za0002], err = dc.ReadInt64()
+			for za0003 := range z.TxPosList {
+				z.TxPosList[za0003], err = dc.ReadInt64()
 				if err != nil {
-					err = msgp.WrapError(err, "TxPosList", za0002)
+					err = msgp.WrapError(err, "TxPosList", za0003)
 					return
 				}
 			}
@@ -313,10 +319,10 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.SrcHashes = make([]uint64, zb0004)
 			}
-			for za0003 := range z.SrcHashes {
-				z.SrcHashes[za0003], err = dc.ReadUint64()
+			for za0004 := range z.SrcHashes {
+				z.SrcHashes[za0004], err = dc.ReadUint64()
 				if err != nil {
-					err = msgp.WrapError(err, "SrcHashes", za0003)
+					err = msgp.WrapError(err, "SrcHashes", za0004)
 					return
 				}
 			}
@@ -332,22 +338,22 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.SrcPosLists = make([][]uint32, zb0005)
 			}
-			for za0004 := range z.SrcPosLists {
+			for za0005 := range z.SrcPosLists {
 				var zb0006 uint32
 				zb0006, err = dc.ReadArrayHeader()
 				if err != nil {
-					err = msgp.WrapError(err, "SrcPosLists", za0004)
+					err = msgp.WrapError(err, "SrcPosLists", za0005)
 					return
 				}
-				if cap(z.SrcPosLists[za0004]) >= int(zb0006) {
-					z.SrcPosLists[za0004] = (z.SrcPosLists[za0004])[:zb0006]
+				if cap(z.SrcPosLists[za0005]) >= int(zb0006) {
+					z.SrcPosLists[za0005] = (z.SrcPosLists[za0005])[:zb0006]
 				} else {
-					z.SrcPosLists[za0004] = make([]uint32, zb0006)
+					z.SrcPosLists[za0005] = make([]uint32, zb0006)
 				}
-				for za0005 := range z.SrcPosLists[za0004] {
-					z.SrcPosLists[za0004][za0005], err = dc.ReadUint32()
+				for za0006 := range z.SrcPosLists[za0005] {
+					z.SrcPosLists[za0005][za0006], err = dc.ReadUint32()
 					if err != nil {
-						err = msgp.WrapError(err, "SrcPosLists", za0004, za0005)
+						err = msgp.WrapError(err, "SrcPosLists", za0005, za0006)
 						return
 					}
 				}
@@ -364,10 +370,10 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.DstHashes = make([]uint64, zb0007)
 			}
-			for za0006 := range z.DstHashes {
-				z.DstHashes[za0006], err = dc.ReadUint64()
+			for za0007 := range z.DstHashes {
+				z.DstHashes[za0007], err = dc.ReadUint64()
 				if err != nil {
-					err = msgp.WrapError(err, "DstHashes", za0006)
+					err = msgp.WrapError(err, "DstHashes", za0007)
 					return
 				}
 			}
@@ -383,22 +389,22 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.DstPosLists = make([][]uint32, zb0008)
 			}
-			for za0007 := range z.DstPosLists {
+			for za0008 := range z.DstPosLists {
 				var zb0009 uint32
 				zb0009, err = dc.ReadArrayHeader()
 				if err != nil {
-					err = msgp.WrapError(err, "DstPosLists", za0007)
+					err = msgp.WrapError(err, "DstPosLists", za0008)
 					return
 				}
-				if cap(z.DstPosLists[za0007]) >= int(zb0009) {
-					z.DstPosLists[za0007] = (z.DstPosLists[za0007])[:zb0009]
+				if cap(z.DstPosLists[za0008]) >= int(zb0009) {
+					z.DstPosLists[za0008] = (z.DstPosLists[za0008])[:zb0009]
 				} else {
-					z.DstPosLists[za0007] = make([]uint32, zb0009)
+					z.DstPosLists[za0008] = make([]uint32, zb0009)
 				}
-				for za0008 := range z.DstPosLists[za0007] {
-					z.DstPosLists[za0007][za0008], err = dc.ReadUint32()
+				for za0009 := range z.DstPosLists[za0008] {
+					z.DstPosLists[za0008][za0009], err = dc.ReadUint32()
 					if err != nil {
-						err = msgp.WrapError(err, "DstPosLists", za0007, za0008)
+						err = msgp.WrapError(err, "DstPosLists", za0008, za0009)
 						return
 					}
 				}
@@ -415,10 +421,10 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.AddrHashes = make([]uint64, zb0010)
 			}
-			for za0009 := range z.AddrHashes {
-				z.AddrHashes[za0009], err = dc.ReadUint64()
+			for za0010 := range z.AddrHashes {
+				z.AddrHashes[za0010], err = dc.ReadUint64()
 				if err != nil {
-					err = msgp.WrapError(err, "AddrHashes", za0009)
+					err = msgp.WrapError(err, "AddrHashes", za0010)
 					return
 				}
 			}
@@ -434,22 +440,22 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.AddrPosLists = make([][]uint32, zb0011)
 			}
-			for za0010 := range z.AddrPosLists {
+			for za0011 := range z.AddrPosLists {
 				var zb0012 uint32
 				zb0012, err = dc.ReadArrayHeader()
 				if err != nil {
-					err = msgp.WrapError(err, "AddrPosLists", za0010)
+					err = msgp.WrapError(err, "AddrPosLists", za0011)
 					return
 				}
-				if cap(z.AddrPosLists[za0010]) >= int(zb0012) {
-					z.AddrPosLists[za0010] = (z.AddrPosLists[za0010])[:zb0012]
+				if cap(z.AddrPosLists[za0011]) >= int(zb0012) {
+					z.AddrPosLists[za0011] = (z.AddrPosLists[za0011])[:zb0012]
 				} else {
-					z.AddrPosLists[za0010] = make([]uint32, zb0012)
+					z.AddrPosLists[za0011] = make([]uint32, zb0012)
 				}
-				for za0011 := range z.AddrPosLists[za0010] {
-					z.AddrPosLists[za0010][za0011], err = dc.ReadUint32()
+				for za0012 := range z.AddrPosLists[za0011] {
+					z.AddrPosLists[za0011][za0012], err = dc.ReadUint32()
 					if err != nil {
-						err = msgp.WrapError(err, "AddrPosLists", za0010, za0011)
+						err = msgp.WrapError(err, "AddrPosLists", za0011, za0012)
 						return
 					}
 				}
@@ -466,10 +472,10 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.TopicHashes = make([]uint64, zb0013)
 			}
-			for za0012 := range z.TopicHashes {
-				z.TopicHashes[za0012], err = dc.ReadUint64()
+			for za0013 := range z.TopicHashes {
+				z.TopicHashes[za0013], err = dc.ReadUint64()
 				if err != nil {
-					err = msgp.WrapError(err, "TopicHashes", za0012)
+					err = msgp.WrapError(err, "TopicHashes", za0013)
 					return
 				}
 			}
@@ -485,22 +491,22 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 			} else {
 				z.TopicPosLists = make([][]uint32, zb0014)
 			}
-			for za0013 := range z.TopicPosLists {
+			for za0014 := range z.TopicPosLists {
 				var zb0015 uint32
 				zb0015, err = dc.ReadArrayHeader()
 				if err != nil {
-					err = msgp.WrapError(err, "TopicPosLists", za0013)
+					err = msgp.WrapError(err, "TopicPosLists", za0014)
 					return
 				}
-				if cap(z.TopicPosLists[za0013]) >= int(zb0015) {
-					z.TopicPosLists[za0013] = (z.TopicPosLists[za0013])[:zb0015]
+				if cap(z.TopicPosLists[za0014]) >= int(zb0015) {
+					z.TopicPosLists[za0014] = (z.TopicPosLists[za0014])[:zb0015]
 				} else {
-					z.TopicPosLists[za0013] = make([]uint32, zb0015)
+					z.TopicPosLists[za0014] = make([]uint32, zb0015)
 				}
-				for za0014 := range z.TopicPosLists[za0013] {
-					z.TopicPosLists[za0013][za0014], err = dc.ReadUint32()
+				for za0015 := range z.TopicPosLists[za0014] {
+					z.TopicPosLists[za0014][za0015], err = dc.ReadUint32()
 					if err != nil {
-						err = msgp.WrapError(err, "TopicPosLists", za0013, za0014)
+						err = msgp.WrapError(err, "TopicPosLists", za0014, za0015)
 						return
 					}
 				}
@@ -518,15 +524,25 @@ func (z *BlockIndex) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 13
+	// map header, size 14
 	// write "ht"
-	err = en.Append(0x8d, 0xa2, 0x68, 0x74)
+	err = en.Append(0x8e, 0xa2, 0x68, 0x74)
 	if err != nil {
 		return
 	}
 	err = en.WriteUint32(z.Height)
 	if err != nil {
 		err = msgp.WrapError(err, "Height")
+		return
+	}
+	// write "bH"
+	err = en.Append(0xa2, 0x62, 0x48)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes((z.BlockHash)[:])
+	if err != nil {
+		err = msgp.WrapError(err, "BlockHash")
 		return
 	}
 	// write "bh"
@@ -549,10 +565,10 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "TxHash48List")
 		return
 	}
-	for za0001 := range z.TxHash48List {
-		err = en.WriteUint64(z.TxHash48List[za0001])
+	for za0002 := range z.TxHash48List {
+		err = en.WriteUint64(z.TxHash48List[za0002])
 		if err != nil {
-			err = msgp.WrapError(err, "TxHash48List", za0001)
+			err = msgp.WrapError(err, "TxHash48List", za0002)
 			return
 		}
 	}
@@ -576,10 +592,10 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "TxPosList")
 		return
 	}
-	for za0002 := range z.TxPosList {
-		err = en.WriteInt64(z.TxPosList[za0002])
+	for za0003 := range z.TxPosList {
+		err = en.WriteInt64(z.TxPosList[za0003])
 		if err != nil {
-			err = msgp.WrapError(err, "TxPosList", za0002)
+			err = msgp.WrapError(err, "TxPosList", za0003)
 			return
 		}
 	}
@@ -593,10 +609,10 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "SrcHashes")
 		return
 	}
-	for za0003 := range z.SrcHashes {
-		err = en.WriteUint64(z.SrcHashes[za0003])
+	for za0004 := range z.SrcHashes {
+		err = en.WriteUint64(z.SrcHashes[za0004])
 		if err != nil {
-			err = msgp.WrapError(err, "SrcHashes", za0003)
+			err = msgp.WrapError(err, "SrcHashes", za0004)
 			return
 		}
 	}
@@ -610,16 +626,16 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "SrcPosLists")
 		return
 	}
-	for za0004 := range z.SrcPosLists {
-		err = en.WriteArrayHeader(uint32(len(z.SrcPosLists[za0004])))
+	for za0005 := range z.SrcPosLists {
+		err = en.WriteArrayHeader(uint32(len(z.SrcPosLists[za0005])))
 		if err != nil {
-			err = msgp.WrapError(err, "SrcPosLists", za0004)
+			err = msgp.WrapError(err, "SrcPosLists", za0005)
 			return
 		}
-		for za0005 := range z.SrcPosLists[za0004] {
-			err = en.WriteUint32(z.SrcPosLists[za0004][za0005])
+		for za0006 := range z.SrcPosLists[za0005] {
+			err = en.WriteUint32(z.SrcPosLists[za0005][za0006])
 			if err != nil {
-				err = msgp.WrapError(err, "SrcPosLists", za0004, za0005)
+				err = msgp.WrapError(err, "SrcPosLists", za0005, za0006)
 				return
 			}
 		}
@@ -634,10 +650,10 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "DstHashes")
 		return
 	}
-	for za0006 := range z.DstHashes {
-		err = en.WriteUint64(z.DstHashes[za0006])
+	for za0007 := range z.DstHashes {
+		err = en.WriteUint64(z.DstHashes[za0007])
 		if err != nil {
-			err = msgp.WrapError(err, "DstHashes", za0006)
+			err = msgp.WrapError(err, "DstHashes", za0007)
 			return
 		}
 	}
@@ -651,16 +667,16 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "DstPosLists")
 		return
 	}
-	for za0007 := range z.DstPosLists {
-		err = en.WriteArrayHeader(uint32(len(z.DstPosLists[za0007])))
+	for za0008 := range z.DstPosLists {
+		err = en.WriteArrayHeader(uint32(len(z.DstPosLists[za0008])))
 		if err != nil {
-			err = msgp.WrapError(err, "DstPosLists", za0007)
+			err = msgp.WrapError(err, "DstPosLists", za0008)
 			return
 		}
-		for za0008 := range z.DstPosLists[za0007] {
-			err = en.WriteUint32(z.DstPosLists[za0007][za0008])
+		for za0009 := range z.DstPosLists[za0008] {
+			err = en.WriteUint32(z.DstPosLists[za0008][za0009])
 			if err != nil {
-				err = msgp.WrapError(err, "DstPosLists", za0007, za0008)
+				err = msgp.WrapError(err, "DstPosLists", za0008, za0009)
 				return
 			}
 		}
@@ -675,10 +691,10 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "AddrHashes")
 		return
 	}
-	for za0009 := range z.AddrHashes {
-		err = en.WriteUint64(z.AddrHashes[za0009])
+	for za0010 := range z.AddrHashes {
+		err = en.WriteUint64(z.AddrHashes[za0010])
 		if err != nil {
-			err = msgp.WrapError(err, "AddrHashes", za0009)
+			err = msgp.WrapError(err, "AddrHashes", za0010)
 			return
 		}
 	}
@@ -692,16 +708,16 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "AddrPosLists")
 		return
 	}
-	for za0010 := range z.AddrPosLists {
-		err = en.WriteArrayHeader(uint32(len(z.AddrPosLists[za0010])))
+	for za0011 := range z.AddrPosLists {
+		err = en.WriteArrayHeader(uint32(len(z.AddrPosLists[za0011])))
 		if err != nil {
-			err = msgp.WrapError(err, "AddrPosLists", za0010)
+			err = msgp.WrapError(err, "AddrPosLists", za0011)
 			return
 		}
-		for za0011 := range z.AddrPosLists[za0010] {
-			err = en.WriteUint32(z.AddrPosLists[za0010][za0011])
+		for za0012 := range z.AddrPosLists[za0011] {
+			err = en.WriteUint32(z.AddrPosLists[za0011][za0012])
 			if err != nil {
-				err = msgp.WrapError(err, "AddrPosLists", za0010, za0011)
+				err = msgp.WrapError(err, "AddrPosLists", za0011, za0012)
 				return
 			}
 		}
@@ -716,10 +732,10 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "TopicHashes")
 		return
 	}
-	for za0012 := range z.TopicHashes {
-		err = en.WriteUint64(z.TopicHashes[za0012])
+	for za0013 := range z.TopicHashes {
+		err = en.WriteUint64(z.TopicHashes[za0013])
 		if err != nil {
-			err = msgp.WrapError(err, "TopicHashes", za0012)
+			err = msgp.WrapError(err, "TopicHashes", za0013)
 			return
 		}
 	}
@@ -733,16 +749,16 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "TopicPosLists")
 		return
 	}
-	for za0013 := range z.TopicPosLists {
-		err = en.WriteArrayHeader(uint32(len(z.TopicPosLists[za0013])))
+	for za0014 := range z.TopicPosLists {
+		err = en.WriteArrayHeader(uint32(len(z.TopicPosLists[za0014])))
 		if err != nil {
-			err = msgp.WrapError(err, "TopicPosLists", za0013)
+			err = msgp.WrapError(err, "TopicPosLists", za0014)
 			return
 		}
-		for za0014 := range z.TopicPosLists[za0013] {
-			err = en.WriteUint32(z.TopicPosLists[za0013][za0014])
+		for za0015 := range z.TopicPosLists[za0014] {
+			err = en.WriteUint32(z.TopicPosLists[za0014][za0015])
 			if err != nil {
-				err = msgp.WrapError(err, "TopicPosLists", za0013, za0014)
+				err = msgp.WrapError(err, "TopicPosLists", za0014, za0015)
 				return
 			}
 		}
@@ -753,18 +769,21 @@ func (z *BlockIndex) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *BlockIndex) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 13
+	// map header, size 14
 	// string "ht"
-	o = append(o, 0x8d, 0xa2, 0x68, 0x74)
+	o = append(o, 0x8e, 0xa2, 0x68, 0x74)
 	o = msgp.AppendUint32(o, z.Height)
+	// string "bH"
+	o = append(o, 0xa2, 0x62, 0x48)
+	o = msgp.AppendBytes(o, (z.BlockHash)[:])
 	// string "bh"
 	o = append(o, 0xa2, 0x62, 0x68)
 	o = msgp.AppendUint64(o, z.BlockHash48)
 	// string "thl"
 	o = append(o, 0xa3, 0x74, 0x68, 0x6c)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.TxHash48List)))
-	for za0001 := range z.TxHash48List {
-		o = msgp.AppendUint64(o, z.TxHash48List[za0001])
+	for za0002 := range z.TxHash48List {
+		o = msgp.AppendUint64(o, z.TxHash48List[za0002])
 	}
 	// string "bo"
 	o = append(o, 0xa2, 0x62, 0x6f)
@@ -772,67 +791,67 @@ func (z *BlockIndex) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "tpl"
 	o = append(o, 0xa3, 0x74, 0x70, 0x6c)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.TxPosList)))
-	for za0002 := range z.TxPosList {
-		o = msgp.AppendInt64(o, z.TxPosList[za0002])
+	for za0003 := range z.TxPosList {
+		o = msgp.AppendInt64(o, z.TxPosList[za0003])
 	}
 	// string "sh"
 	o = append(o, 0xa2, 0x73, 0x68)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.SrcHashes)))
-	for za0003 := range z.SrcHashes {
-		o = msgp.AppendUint64(o, z.SrcHashes[za0003])
+	for za0004 := range z.SrcHashes {
+		o = msgp.AppendUint64(o, z.SrcHashes[za0004])
 	}
 	// string "sp"
 	o = append(o, 0xa2, 0x73, 0x70)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.SrcPosLists)))
-	for za0004 := range z.SrcPosLists {
-		o = msgp.AppendArrayHeader(o, uint32(len(z.SrcPosLists[za0004])))
-		for za0005 := range z.SrcPosLists[za0004] {
-			o = msgp.AppendUint32(o, z.SrcPosLists[za0004][za0005])
+	for za0005 := range z.SrcPosLists {
+		o = msgp.AppendArrayHeader(o, uint32(len(z.SrcPosLists[za0005])))
+		for za0006 := range z.SrcPosLists[za0005] {
+			o = msgp.AppendUint32(o, z.SrcPosLists[za0005][za0006])
 		}
 	}
 	// string "dh"
 	o = append(o, 0xa2, 0x64, 0x68)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.DstHashes)))
-	for za0006 := range z.DstHashes {
-		o = msgp.AppendUint64(o, z.DstHashes[za0006])
+	for za0007 := range z.DstHashes {
+		o = msgp.AppendUint64(o, z.DstHashes[za0007])
 	}
 	// string "dp"
 	o = append(o, 0xa2, 0x64, 0x70)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.DstPosLists)))
-	for za0007 := range z.DstPosLists {
-		o = msgp.AppendArrayHeader(o, uint32(len(z.DstPosLists[za0007])))
-		for za0008 := range z.DstPosLists[za0007] {
-			o = msgp.AppendUint32(o, z.DstPosLists[za0007][za0008])
+	for za0008 := range z.DstPosLists {
+		o = msgp.AppendArrayHeader(o, uint32(len(z.DstPosLists[za0008])))
+		for za0009 := range z.DstPosLists[za0008] {
+			o = msgp.AppendUint32(o, z.DstPosLists[za0008][za0009])
 		}
 	}
 	// string "ah"
 	o = append(o, 0xa2, 0x61, 0x68)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.AddrHashes)))
-	for za0009 := range z.AddrHashes {
-		o = msgp.AppendUint64(o, z.AddrHashes[za0009])
+	for za0010 := range z.AddrHashes {
+		o = msgp.AppendUint64(o, z.AddrHashes[za0010])
 	}
 	// string "ap"
 	o = append(o, 0xa2, 0x61, 0x70)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.AddrPosLists)))
-	for za0010 := range z.AddrPosLists {
-		o = msgp.AppendArrayHeader(o, uint32(len(z.AddrPosLists[za0010])))
-		for za0011 := range z.AddrPosLists[za0010] {
-			o = msgp.AppendUint32(o, z.AddrPosLists[za0010][za0011])
+	for za0011 := range z.AddrPosLists {
+		o = msgp.AppendArrayHeader(o, uint32(len(z.AddrPosLists[za0011])))
+		for za0012 := range z.AddrPosLists[za0011] {
+			o = msgp.AppendUint32(o, z.AddrPosLists[za0011][za0012])
 		}
 	}
 	// string "th"
 	o = append(o, 0xa2, 0x74, 0x68)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.TopicHashes)))
-	for za0012 := range z.TopicHashes {
-		o = msgp.AppendUint64(o, z.TopicHashes[za0012])
+	for za0013 := range z.TopicHashes {
+		o = msgp.AppendUint64(o, z.TopicHashes[za0013])
 	}
 	// string "tp"
 	o = append(o, 0xa2, 0x74, 0x70)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.TopicPosLists)))
-	for za0013 := range z.TopicPosLists {
-		o = msgp.AppendArrayHeader(o, uint32(len(z.TopicPosLists[za0013])))
-		for za0014 := range z.TopicPosLists[za0013] {
-			o = msgp.AppendUint32(o, z.TopicPosLists[za0013][za0014])
+	for za0014 := range z.TopicPosLists {
+		o = msgp.AppendArrayHeader(o, uint32(len(z.TopicPosLists[za0014])))
+		for za0015 := range z.TopicPosLists[za0014] {
+			o = msgp.AppendUint32(o, z.TopicPosLists[za0014][za0015])
 		}
 	}
 	return
@@ -862,6 +881,12 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Height")
 				return
 			}
+		case "bH":
+			bts, err = msgp.ReadExactBytes(bts, (z.BlockHash)[:])
+			if err != nil {
+				err = msgp.WrapError(err, "BlockHash")
+				return
+			}
 		case "bh":
 			z.BlockHash48, bts, err = msgp.ReadUint64Bytes(bts)
 			if err != nil {
@@ -880,10 +905,10 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.TxHash48List = make([]uint64, zb0002)
 			}
-			for za0001 := range z.TxHash48List {
-				z.TxHash48List[za0001], bts, err = msgp.ReadUint64Bytes(bts)
+			for za0002 := range z.TxHash48List {
+				z.TxHash48List[za0002], bts, err = msgp.ReadUint64Bytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "TxHash48List", za0001)
+					err = msgp.WrapError(err, "TxHash48List", za0002)
 					return
 				}
 			}
@@ -905,10 +930,10 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.TxPosList = make([]int64, zb0003)
 			}
-			for za0002 := range z.TxPosList {
-				z.TxPosList[za0002], bts, err = msgp.ReadInt64Bytes(bts)
+			for za0003 := range z.TxPosList {
+				z.TxPosList[za0003], bts, err = msgp.ReadInt64Bytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "TxPosList", za0002)
+					err = msgp.WrapError(err, "TxPosList", za0003)
 					return
 				}
 			}
@@ -924,10 +949,10 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.SrcHashes = make([]uint64, zb0004)
 			}
-			for za0003 := range z.SrcHashes {
-				z.SrcHashes[za0003], bts, err = msgp.ReadUint64Bytes(bts)
+			for za0004 := range z.SrcHashes {
+				z.SrcHashes[za0004], bts, err = msgp.ReadUint64Bytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "SrcHashes", za0003)
+					err = msgp.WrapError(err, "SrcHashes", za0004)
 					return
 				}
 			}
@@ -943,22 +968,22 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.SrcPosLists = make([][]uint32, zb0005)
 			}
-			for za0004 := range z.SrcPosLists {
+			for za0005 := range z.SrcPosLists {
 				var zb0006 uint32
 				zb0006, bts, err = msgp.ReadArrayHeaderBytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "SrcPosLists", za0004)
+					err = msgp.WrapError(err, "SrcPosLists", za0005)
 					return
 				}
-				if cap(z.SrcPosLists[za0004]) >= int(zb0006) {
-					z.SrcPosLists[za0004] = (z.SrcPosLists[za0004])[:zb0006]
+				if cap(z.SrcPosLists[za0005]) >= int(zb0006) {
+					z.SrcPosLists[za0005] = (z.SrcPosLists[za0005])[:zb0006]
 				} else {
-					z.SrcPosLists[za0004] = make([]uint32, zb0006)
+					z.SrcPosLists[za0005] = make([]uint32, zb0006)
 				}
-				for za0005 := range z.SrcPosLists[za0004] {
-					z.SrcPosLists[za0004][za0005], bts, err = msgp.ReadUint32Bytes(bts)
+				for za0006 := range z.SrcPosLists[za0005] {
+					z.SrcPosLists[za0005][za0006], bts, err = msgp.ReadUint32Bytes(bts)
 					if err != nil {
-						err = msgp.WrapError(err, "SrcPosLists", za0004, za0005)
+						err = msgp.WrapError(err, "SrcPosLists", za0005, za0006)
 						return
 					}
 				}
@@ -975,10 +1000,10 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.DstHashes = make([]uint64, zb0007)
 			}
-			for za0006 := range z.DstHashes {
-				z.DstHashes[za0006], bts, err = msgp.ReadUint64Bytes(bts)
+			for za0007 := range z.DstHashes {
+				z.DstHashes[za0007], bts, err = msgp.ReadUint64Bytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "DstHashes", za0006)
+					err = msgp.WrapError(err, "DstHashes", za0007)
 					return
 				}
 			}
@@ -994,22 +1019,22 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.DstPosLists = make([][]uint32, zb0008)
 			}
-			for za0007 := range z.DstPosLists {
+			for za0008 := range z.DstPosLists {
 				var zb0009 uint32
 				zb0009, bts, err = msgp.ReadArrayHeaderBytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "DstPosLists", za0007)
+					err = msgp.WrapError(err, "DstPosLists", za0008)
 					return
 				}
-				if cap(z.DstPosLists[za0007]) >= int(zb0009) {
-					z.DstPosLists[za0007] = (z.DstPosLists[za0007])[:zb0009]
+				if cap(z.DstPosLists[za0008]) >= int(zb0009) {
+					z.DstPosLists[za0008] = (z.DstPosLists[za0008])[:zb0009]
 				} else {
-					z.DstPosLists[za0007] = make([]uint32, zb0009)
+					z.DstPosLists[za0008] = make([]uint32, zb0009)
 				}
-				for za0008 := range z.DstPosLists[za0007] {
-					z.DstPosLists[za0007][za0008], bts, err = msgp.ReadUint32Bytes(bts)
+				for za0009 := range z.DstPosLists[za0008] {
+					z.DstPosLists[za0008][za0009], bts, err = msgp.ReadUint32Bytes(bts)
 					if err != nil {
-						err = msgp.WrapError(err, "DstPosLists", za0007, za0008)
+						err = msgp.WrapError(err, "DstPosLists", za0008, za0009)
 						return
 					}
 				}
@@ -1026,10 +1051,10 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.AddrHashes = make([]uint64, zb0010)
 			}
-			for za0009 := range z.AddrHashes {
-				z.AddrHashes[za0009], bts, err = msgp.ReadUint64Bytes(bts)
+			for za0010 := range z.AddrHashes {
+				z.AddrHashes[za0010], bts, err = msgp.ReadUint64Bytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "AddrHashes", za0009)
+					err = msgp.WrapError(err, "AddrHashes", za0010)
 					return
 				}
 			}
@@ -1045,22 +1070,22 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.AddrPosLists = make([][]uint32, zb0011)
 			}
-			for za0010 := range z.AddrPosLists {
+			for za0011 := range z.AddrPosLists {
 				var zb0012 uint32
 				zb0012, bts, err = msgp.ReadArrayHeaderBytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "AddrPosLists", za0010)
+					err = msgp.WrapError(err, "AddrPosLists", za0011)
 					return
 				}
-				if cap(z.AddrPosLists[za0010]) >= int(zb0012) {
-					z.AddrPosLists[za0010] = (z.AddrPosLists[za0010])[:zb0012]
+				if cap(z.AddrPosLists[za0011]) >= int(zb0012) {
+					z.AddrPosLists[za0011] = (z.AddrPosLists[za0011])[:zb0012]
 				} else {
-					z.AddrPosLists[za0010] = make([]uint32, zb0012)
+					z.AddrPosLists[za0011] = make([]uint32, zb0012)
 				}
-				for za0011 := range z.AddrPosLists[za0010] {
-					z.AddrPosLists[za0010][za0011], bts, err = msgp.ReadUint32Bytes(bts)
+				for za0012 := range z.AddrPosLists[za0011] {
+					z.AddrPosLists[za0011][za0012], bts, err = msgp.ReadUint32Bytes(bts)
 					if err != nil {
-						err = msgp.WrapError(err, "AddrPosLists", za0010, za0011)
+						err = msgp.WrapError(err, "AddrPosLists", za0011, za0012)
 						return
 					}
 				}
@@ -1077,10 +1102,10 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.TopicHashes = make([]uint64, zb0013)
 			}
-			for za0012 := range z.TopicHashes {
-				z.TopicHashes[za0012], bts, err = msgp.ReadUint64Bytes(bts)
+			for za0013 := range z.TopicHashes {
+				z.TopicHashes[za0013], bts, err = msgp.ReadUint64Bytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "TopicHashes", za0012)
+					err = msgp.WrapError(err, "TopicHashes", za0013)
 					return
 				}
 			}
@@ -1096,22 +1121,22 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			} else {
 				z.TopicPosLists = make([][]uint32, zb0014)
 			}
-			for za0013 := range z.TopicPosLists {
+			for za0014 := range z.TopicPosLists {
 				var zb0015 uint32
 				zb0015, bts, err = msgp.ReadArrayHeaderBytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "TopicPosLists", za0013)
+					err = msgp.WrapError(err, "TopicPosLists", za0014)
 					return
 				}
-				if cap(z.TopicPosLists[za0013]) >= int(zb0015) {
-					z.TopicPosLists[za0013] = (z.TopicPosLists[za0013])[:zb0015]
+				if cap(z.TopicPosLists[za0014]) >= int(zb0015) {
+					z.TopicPosLists[za0014] = (z.TopicPosLists[za0014])[:zb0015]
 				} else {
-					z.TopicPosLists[za0013] = make([]uint32, zb0015)
+					z.TopicPosLists[za0014] = make([]uint32, zb0015)
 				}
-				for za0014 := range z.TopicPosLists[za0013] {
-					z.TopicPosLists[za0013][za0014], bts, err = msgp.ReadUint32Bytes(bts)
+				for za0015 := range z.TopicPosLists[za0014] {
+					z.TopicPosLists[za0014][za0015], bts, err = msgp.ReadUint32Bytes(bts)
 					if err != nil {
-						err = msgp.WrapError(err, "TopicPosLists", za0013, za0014)
+						err = msgp.WrapError(err, "TopicPosLists", za0014, za0015)
 						return
 					}
 				}
@@ -1130,21 +1155,21 @@ func (z *BlockIndex) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *BlockIndex) Msgsize() (s int) {
-	s = 1 + 3 + msgp.Uint32Size + 3 + msgp.Uint64Size + 4 + msgp.ArrayHeaderSize + (len(z.TxHash48List) * (msgp.Uint64Size)) + 3 + msgp.Int64Size + 4 + msgp.ArrayHeaderSize + (len(z.TxPosList) * (msgp.Int64Size)) + 3 + msgp.ArrayHeaderSize + (len(z.SrcHashes) * (msgp.Uint64Size)) + 3 + msgp.ArrayHeaderSize
-	for za0004 := range z.SrcPosLists {
-		s += msgp.ArrayHeaderSize + (len(z.SrcPosLists[za0004]) * (msgp.Uint32Size))
+	s = 1 + 3 + msgp.Uint32Size + 3 + msgp.ArrayHeaderSize + (32 * (msgp.ByteSize)) + 3 + msgp.Uint64Size + 4 + msgp.ArrayHeaderSize + (len(z.TxHash48List) * (msgp.Uint64Size)) + 3 + msgp.Int64Size + 4 + msgp.ArrayHeaderSize + (len(z.TxPosList) * (msgp.Int64Size)) + 3 + msgp.ArrayHeaderSize + (len(z.SrcHashes) * (msgp.Uint64Size)) + 3 + msgp.ArrayHeaderSize
+	for za0005 := range z.SrcPosLists {
+		s += msgp.ArrayHeaderSize + (len(z.SrcPosLists[za0005]) * (msgp.Uint32Size))
 	}
 	s += 3 + msgp.ArrayHeaderSize + (len(z.DstHashes) * (msgp.Uint64Size)) + 3 + msgp.ArrayHeaderSize
-	for za0007 := range z.DstPosLists {
-		s += msgp.ArrayHeaderSize + (len(z.DstPosLists[za0007]) * (msgp.Uint32Size))
+	for za0008 := range z.DstPosLists {
+		s += msgp.ArrayHeaderSize + (len(z.DstPosLists[za0008]) * (msgp.Uint32Size))
 	}
 	s += 3 + msgp.ArrayHeaderSize + (len(z.AddrHashes) * (msgp.Uint64Size)) + 3 + msgp.ArrayHeaderSize
-	for za0010 := range z.AddrPosLists {
-		s += msgp.ArrayHeaderSize + (len(z.AddrPosLists[za0010]) * (msgp.Uint32Size))
+	for za0011 := range z.AddrPosLists {
+		s += msgp.ArrayHeaderSize + (len(z.AddrPosLists[za0011]) * (msgp.Uint32Size))
 	}
 	s += 3 + msgp.ArrayHeaderSize + (len(z.TopicHashes) * (msgp.Uint64Size)) + 3 + msgp.ArrayHeaderSize
-	for za0013 := range z.TopicPosLists {
-		s += msgp.ArrayHeaderSize + (len(z.TopicPosLists[za0013]) * (msgp.Uint32Size))
+	for za0014 := range z.TopicPosLists {
+		s += msgp.ArrayHeaderSize + (len(z.TopicPosLists[za0014]) * (msgp.Uint32Size))
 	}
 	return
 }

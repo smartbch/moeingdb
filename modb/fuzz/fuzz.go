@@ -235,6 +235,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 		if !bytes.Equal(imp.GetBlockByHeight(int64(h)), blk.BlockInfo) {
 			fmt.Printf("Why %s %s\n", string(imp.GetBlockByHeight(int64(h))), string(blk.BlockInfo))
 		}
+		assert(imp.GetBlockHashByHeight(int64(h)) == blk.BlockHash)
 		assert(bytes.Equal(imp.GetBlockByHeight(int64(h)), blk.BlockInfo))
 		assert(bytes.Equal(ref.GetBlockByHeight(int64(h)), blk.BlockInfo))
 		foundIt := false

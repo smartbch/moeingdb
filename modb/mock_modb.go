@@ -36,6 +36,17 @@ func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.height = blk.Height
 }
 
+func (db *MockMoDB) GetBlockHashByHeight(height int64) (res [32]byte) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
+	for _, blk := range db.blkMap {
+		if blk.Height == height {
+			return blk.BlockHash
+		}
+	}
+	return
+}
+
 func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
@@ -183,5 +194,17 @@ func (db *MockMoDB) queryTx(bySrc bool, byDst bool, addr [20]byte, startHeight, 
 }
 
 func (db *MockMoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+	panic("Implement Me")
+}
+
+func (db *MockMoDB) QueryNotificationCounter(key []byte) int64 {
+	panic("Implement Me")
+}
+
+func (db *MockMoDB) SetExtractNotificationFn(fn types.ExtractNotificationFromTxFn) {
+	panic("Implement Me")
+}
+
+func (db *MockMoDB) SetDisableComplexIndex(b bool) {
 	panic("Implement Me")
 }

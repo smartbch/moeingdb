@@ -66,6 +66,15 @@ type MoDB struct {
 	height   int64
 	//For the notify counters
 	extractNotificationFromTx types.ExtractNotificationFromTxFn
+	//Disable complex transaction index: from-addr to-addr logs
+	disableComplexIndex bool
+	//Cache for latest blockhashes
+	latestBlockhashes [512]*BlockHeightAndHash
+}
+
+type BlockHeightAndHash struct {
+	Height    uint32
+	BlockHash [32]byte
 }
 
 var _ types.DB = (*MoDB)(nil)
@@ -204,10 +213,13 @@ func (db *MoDB) appendToFile(data []byte) int64 {
 func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	blkIdx := &types.BlockIndex{
 		Height:       uint32(blk.Height),
+		BlockHash:    blk.BlockHash,
 		TxHash48List: make([]uint64, len(blk.TxList)),
 		TxPosList:    make([]int64, len(blk.TxList)),
 	}
-	db.fillLogIndex(blk, blkIdx)
+	if !db.disableComplexIndex {
+		db.fillLogIndex(blk, blkIdx)
+	}
 	// Get a write lock before we start updating
 	db.mtx.lock()
 	defer func() {
@@ -219,25 +231,31 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	blkIdx.BeginOffset = offset40
 	blkIdx.BlockHash48 = Sum48(db.seed, blk.BlockHash[:])
 	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, offset40)
+	db.latestBlockhashes[int(blkIdx.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+		Height:    blkIdx.Height,
+		BlockHash: blkIdx.BlockHash,
+	}
 
-	for i, tx := range blk.TxList {
-		offset40 = db.appendToFile(tx.Content)
-		blkIdx.TxPosList[i] = offset40
-		blkIdx.TxHash48List[i] = Sum48(db.seed, tx.HashId[:])
-		id56 := GetId56(blkIdx.Height, i)
-		db.indexer.AddTx(id56, blkIdx.TxHash48List[i], offset40)
-	}
-	for i, srcHash48 := range blkIdx.SrcHashes {
-		db.indexer.AddSrc2Tx(srcHash48, blkIdx.Height, blkIdx.SrcPosLists[i])
-	}
-	for i, dstHash48 := range blkIdx.DstHashes {
-		db.indexer.AddDst2Tx(dstHash48, blkIdx.Height, blkIdx.DstPosLists[i])
-	}
-	for i, addrHash48 := range blkIdx.AddrHashes {
-		db.indexer.AddAddr2Tx(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
-	}
-	for i, topicHash48 := range blkIdx.TopicHashes {
-		db.indexer.AddTopic2Tx(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
+	if !db.disableComplexIndex {
+		for i, tx := range blk.TxList {
+			offset40 = db.appendToFile(tx.Content)
+			blkIdx.TxPosList[i] = offset40
+			blkIdx.TxHash48List[i] = Sum48(db.seed, tx.HashId[:])
+			id56 := GetId56(blkIdx.Height, i)
+			db.indexer.AddTx(id56, blkIdx.TxHash48List[i], offset40)
+		}
+		for i, srcHash48 := range blkIdx.SrcHashes {
+			db.indexer.AddSrc2Tx(srcHash48, blkIdx.Height, blkIdx.SrcPosLists[i])
+		}
+		for i, dstHash48 := range blkIdx.DstHashes {
+			db.indexer.AddDst2Tx(dstHash48, blkIdx.Height, blkIdx.DstPosLists[i])
+		}
+		for i, addrHash48 := range blkIdx.AddrHashes {
+			db.indexer.AddAddr2Tx(addrHash48, blkIdx.Height, blkIdx.AddrPosLists[i])
+		}
+		for i, topicHash48 := range blkIdx.TopicHashes {
+			db.indexer.AddTopic2Tx(topicHash48, blkIdx.Height, blkIdx.TopicPosLists[i])
+		}
 	}
 
 	db.metadb.OpenNewBatch()
@@ -273,6 +291,10 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 
 func (db *MoDB) SetExtractNotificationFn(fn types.ExtractNotificationFromTxFn) {
 	db.extractNotificationFromTx = fn
+}
+
+func (db *MoDB) SetDisableComplexIndex(b bool) {
+	db.disableComplexIndex = b
 }
 
 func (db *MoDB) updateNotificationCounters(blk *types.Block) {
@@ -448,6 +470,10 @@ func (db *MoDB) reloadToIndexer() {
 // reload one block's index information into in-memory indexer
 func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, blkIdx.BeginOffset)
+	db.latestBlockhashes[int(blkIdx.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+		Height:    blkIdx.Height,
+		BlockHash: blkIdx.BlockHash,
+	}
 	for i, txHash48 := range blkIdx.TxHash48List {
 		id56 := GetId56(blkIdx.Height, i)
 		db.indexer.AddTx(id56, txHash48, blkIdx.TxPosList[i])
@@ -483,6 +509,18 @@ func (db *MoDB) readInFile(offset40 int64) []byte {
 		panic(err)
 	}
 	return bz[4:]
+}
+
+// given a recent block's height, return its blockhash
+func (db *MoDB) GetBlockHashByHeight(height int64) (res [32]byte) {
+	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)]
+	if heightAndHash == nil {
+		return
+	}
+	if heightAndHash.Height == uint32(height) {
+		res = heightAndHash.BlockHash
+	}
+	return
 }
 
 // given a block's height, return serialized information.
@@ -797,4 +835,31 @@ func parallelRun(workerCount int, fn func(workerID int)) {
 	wg.Wait()
 }
 
+//================================
+
+var TransferEvent = []byte{0xef, 0xb3, 0x23, 0xf5, 0x4d, 0x5a, 0xf5, 0x28, 0x16, 0xa1, 0xc4, 0x63, 0xf1, 0xa7, 0x2b, 0x95, 0xaa, 0x8d, 0x37, 0xfc, 0x68, 0xb0, 0xc2, 0x69, 0x9b, 0xc8, 0xe2, 0x1b, 0xad, 0x52, 0xf2, 0xdd}
+
+// 10: To-address of TX
+// 11: From-address of SEP20-Transfer
+// 12: To-address of SEP20-Transfer
+func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
+	var addToMap = func(k string) {
+		if _, ok := notiMap[k]; ok {
+			notiMap[k] += 1
+		} else {
+			notiMap[k] = 1
+		}
+	}
+	k := append([]byte{10}, tx.DstAddr[:]...)
+	addToMap(string(k))
+	for _, log := range tx.LogList {
+		if len(log.Topics) != 3 || !bytes.Equal(log.Topics[0][:], TransferEvent[:]) {
+			continue
+		}
+		k := append(append([]byte{11}, log.Address[:]...), log.Topics[1][:]...)
+		addToMap(string(k))
+		k = append(append([]byte{12}, log.Address[:]...), log.Topics[2][:]...)
+		addToMap(string(k))
+	}
+}
 
