@@ -23,6 +23,7 @@ type FuzzConfig struct {
 	SrcQueryCount     int
 	DstQueryCount     int
 	SrcDstQueryCount  int
+	ReplayLastEveryN  int64
 }
 
 var Config2 = FuzzConfig{
@@ -35,6 +36,7 @@ var Config2 = FuzzConfig{
 	SrcQueryCount:     5,
 	DstQueryCount:     5,
 	SrcDstQueryCount:  5,
+	ReplayLastEveryN:  5,
 }
 
 var DefaultConfig = FuzzConfig{
@@ -47,6 +49,7 @@ var DefaultConfig = FuzzConfig{
 	SrcQueryCount:     3,
 	DstQueryCount:     3,
 	SrcDstQueryCount:  3,
+	ReplayLastEveryN:  3,
 }
 
 var AddressList [][20]byte
@@ -219,6 +222,10 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 			imp.AddBlock(blk, pruneTill)
 		} else {
 			imp.AddBlock(blk, -1)
+			if (h % cfg.ReplayLastEveryN) == (rs.GetInt64() % cfg.ReplayLastEveryN) {
+				fmt.Printf("Now we replay %d\n", h)
+				imp.AddBlock(blk, -1) // replay the last block
+			}
 		}
 	}
 	ref.AddBlock(nil, -1)

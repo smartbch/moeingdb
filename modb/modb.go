@@ -3,6 +3,7 @@ package modb
 import (
 	"bytes"
 	"encoding/binary"
+	//"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -261,16 +262,18 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 
 	db.metadb.OpenNewBatch()
-	db.updateNotificationCounters(blk)
+	blkKey := []byte("B1234")
+	binary.LittleEndian.PutUint32(blkKey[1:], blkIdx.Height)
+	if !db.metadb.Has(blkKey) { // if we have not processed this block before
+		db.updateNotificationCounters(blk)
+	}
 	// save the index information to metadb, such that we can later recover and prune in-memory index
 	var err error
 	db.idxBuf, err = blkIdx.MarshalMsg(db.idxBuf[:0])
 	if err != nil {
 		panic(err)
 	}
-	buf := []byte("B1234")
-	binary.LittleEndian.PutUint32(buf[1:], blkIdx.Height)
-	db.metadb.CurrBatch().Set(buf, db.idxBuf)
+	db.metadb.CurrBatch().Set(blkKey, db.idxBuf)
 	// write the size of hpfile to metadb
 	var b8 [8]byte
 	binary.LittleEndian.PutUint64(b8[:], uint64(db.hpfile.Size()))
@@ -852,14 +855,20 @@ func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 	}
 	k := append([]byte{types.TO_ADDR_KEY}, tx.DstAddr[:]...)
 	addToMap(string(k))
+	//fmt.Printf("TO_ADDR_KEY %#v\n", k)
+	//fmt.Printf("len tx.LogList %d\n", len(tx.LogList))
 	for _, log := range tx.LogList {
+		//fmt.Printf("Topic[0] %#v\n", log.Topics[0][:])
+		//fmt.Printf("TransferEvent %#v\n", types.TransferEvent[:])
 		if len(log.Topics) != 3 || !bytes.Equal(log.Topics[0][:], types.TransferEvent[:]) {
 			continue
 		}
 		k := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, log.Address[:]...), log.Topics[1][:]...)
 		addToMap(string(k))
+		//fmt.Printf("TRANS_FROM_ADDR_KEY %#v\n", k)
 		k = append(append([]byte{types.TRANS_TO_ADDR_KEY}, log.Address[:]...), log.Topics[2][:]...)
 		addToMap(string(k))
+		//fmt.Printf("TRANS_TO_ADDR_KEY %#v\n", k)
 	}
 }
 
