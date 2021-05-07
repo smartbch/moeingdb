@@ -365,6 +365,15 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 		//fmt.Printf(" ------- Query %d --------\n", i)
 		startHeight, endHeight := getStartEndHeight(rs, cfg)
 		idx := int(rs.GetUint32()) % len(AddressList)
+		if pruneTill == -1 {
+			key := append([]byte{types.TO_ADDR_KEY}, AddressList[idx][:]...)
+			refCount := ref.QueryNotificationCounter(key)
+			impCount := imp.QueryNotificationCounter(key)
+			if refCount != impCount {
+				fmt.Printf("ref %d imp %d addr %#v\n", refCount, impCount, AddressList[idx])
+				panic("QueryNotificationCounter not match")
+			}
+		}
 		refSet := QueryTxByDst(ref, AddressList[idx], startHeight, endHeight)
 		impSet := QueryTxByDst(imp, AddressList[idx], startHeight, endHeight)
 		ok := true

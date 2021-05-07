@@ -3,7 +3,6 @@ package modb
 import (
 	"bytes"
 	"encoding/binary"
-	//"fmt"
 	"sync"
 	"sync/atomic"
 

@@ -197,8 +197,24 @@ func (db *MockMoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, 
 	panic("Implement Me")
 }
 
-func (db *MockMoDB) QueryNotificationCounter(key []byte) int64 {
-	panic("Implement Me")
+func (db *MockMoDB) QueryNotificationCounter(key []byte) (counter int64) {
+	db.mtx.RLock()
+	defer db.mtx.RUnlock()
+	if len(key) != 21 || key[0] != types.TO_ADDR_KEY {
+		panic("Implement Me")
+	}
+	for i := int64(0); i <= db.height; i++ {
+		blk, ok := db.blkMap[i]
+		if !ok {
+			continue
+		}
+		for _, tx := range blk.TxList {
+			if bytes.Equal(key[1:], tx.DstAddr[:]) {
+				counter++
+			}
+		}
+	}
+	return
 }
 
 func (db *MockMoDB) SetExtractNotificationFn(fn types.ExtractNotificationFromTxFn) {
