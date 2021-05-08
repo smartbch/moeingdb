@@ -31,6 +31,7 @@ const (
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
 
+// At this mutex, if a writer is trying to get a write-lock, no new reader can get read-lock
 type rwMutex struct {
 	mtx sync.RWMutex
 	wg  sync.WaitGroup
@@ -75,6 +76,22 @@ type MoDB struct {
 type BlockHeightAndHash struct {
 	Height    uint32
 	BlockHash [32]byte
+}
+
+func (blkHH BlockHeightAndHash) toBytes() []byte {
+	var res [4+32]byte
+	binary.LittleEndian.PutUint32(res[:4], blkHH.Height)
+	copy(res[4:], blkHH.BlockHash[:])
+	return res[:]
+}
+
+func (blkHH *BlockHeightAndHash) setBytes(in []byte) *BlockHeightAndHash {
+	if len(in) != 4 + 32 {
+		panic("Incorrect length for BlockHeightAndHash")
+	}
+	blkHH.Height = binary.LittleEndian.Uint32(in[:4])
+	copy(blkHH.BlockHash[:], in[4:])
+	return blkHH
 }
 
 var _ types.DB = (*MoDB)(nil)
