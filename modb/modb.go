@@ -183,8 +183,8 @@ func (db *MoDB) Close() {
 }
 
 func (db *MoDB) SetMaxEntryCount(c int) {
-	db.indexer.SetMaxOffsetCount(c)
-	db.maxCount = c
+	db.maxCount = (c*12)/10 // with 20% margin
+	db.indexer.SetMaxOffsetCount(db.maxCount)
 }
 
 func (db *MoDB) GetLatestHeight() int64 {
@@ -683,19 +683,34 @@ func expandTopics(topicOrList [][32]byte, inList []addrAndTopics) (outList []add
 	return
 }
 
+func reverseOffList(s []int64) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
 // Given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
 // whether it wants more data.
 func (db *MoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
+	reverse := false
+	if startHeight > endHeight {
+		reverse = true
+		startHeight, endHeight = endHeight, startHeight
+	}
 	offList := db.getTxOffList(addr, topics, startHeight, endHeight)
+	if reverse {
+		reverseOffList(offList)
+	}
 	db.runFnAtTxs(offList, fn)
 }
 
 // Read TXs out according to offset lists, and apply 'fn' to them
 func (db *MoDB) runFnAtTxs(offList []int64, fn func([]byte) bool) {
-	if db.maxCount > 0 && len(offList) > db.maxCount {
-		offList = offList[:db.maxCount]
+	if db.maxCount > 0 && len(offList) >= db.maxCount {
+		fn(nil) // to report error
+		return
 	}
 	for _, offset40 := range offList {
 		bz := db.readInFile(offset40)
@@ -732,7 +747,15 @@ func (db *MoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn fu
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	addrHash48 := Sum48(db.seed, addr[:])
+	reverse := false
+	if startHeight > endHeight {
+		reverse = true
+		startHeight, endHeight = endHeight, startHeight
+	}
 	offList := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
+	if reverse {
+		reverseOffList(offList)
+	}
 	db.runFnAtTxs(offList, fn)
 }
 
@@ -740,7 +763,15 @@ func (db *MoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn fu
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	addrHash48 := Sum48(db.seed, addr[:])
+	reverse := false
+	if startHeight > endHeight {
+		reverse = true
+		startHeight, endHeight = endHeight, startHeight
+	}
 	offList := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
+	if reverse {
+		reverseOffList(offList)
+	}
 	db.runFnAtTxs(offList, fn)
 }
 
@@ -748,9 +779,17 @@ func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, 
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	addrHash48 := Sum48(db.seed, addr[:])
+	reverse := false
+	if startHeight > endHeight {
+		reverse = true
+		startHeight, endHeight = endHeight, startHeight
+	}
 	offListSrc := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
 	offListDst := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
 	offList := mergeOffLists([][]int64{offListSrc, offListDst})
+	if reverse {
+		reverseOffList(offList)
+	}
 	db.runFnAtTxs(offList, fn)
 }
 
