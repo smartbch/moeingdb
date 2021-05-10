@@ -111,6 +111,7 @@ type DB interface {
 }
 
 const (
+	FROM_ADDR_KEY byte = 9
 	TO_ADDR_KEY byte = 10
 	TRANS_FROM_ADDR_KEY byte = 11
 	TRANS_TO_ADDR_KEY byte = 12

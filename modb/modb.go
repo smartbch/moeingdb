@@ -908,6 +908,9 @@ func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 			notiMap[k] = 1
 		}
 	}
+	//fmt.Printf("GOT_TX %#v\n", tx)
+	k := append([]byte{types.FROM_ADDR_KEY}, tx.SrcAddr[:]...)
+	addToMap(string(k))
 	k := append([]byte{types.TO_ADDR_KEY}, tx.DstAddr[:]...)
 	addToMap(string(k))
 	//fmt.Printf("TO_ADDR_KEY %#v\n", k)
