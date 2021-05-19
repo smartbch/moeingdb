@@ -466,7 +466,7 @@ func (db *MoDB) fillLogIndex(blk *types.Block, blkIdx *types.BlockIndex) {
 		blkIdx.TopicHashes = append(blkIdx.TopicHashes, topic)
 		blkIdx.TopicPosLists = append(blkIdx.TopicPosLists, posList)
 	}
-	return
+	//return
 }
 
 // reload index information from metadb into in-memory indexer
@@ -620,9 +620,9 @@ func (aat *addrAndTopics) appendTopic(topic [32]byte) addrAndTopics {
 	}
 }
 
-func (aat *addrAndTopics) isEmpty() bool {
-	return aat.addr == nil && len(aat.topics) == 0
-}
+//func (aat *addrAndTopics) isEmpty() bool {
+//	return aat.addr == nil && len(aat.topics) == 0
+//}
 
 func (aat *addrAndTopics) toShortStr() string {
 	s := "-"
@@ -839,8 +839,8 @@ func findMinimumFirstElement(offLists [][]int64) (idx int, min int64) {
 // returns the short hash of the key
 func Sum48(seed [8]byte, key []byte) uint64 {
 	digest := xxhash.New()
-	digest.Write(seed[:])
-	digest.Write(key)
+	_, _ = digest.Write(seed[:])
+	_, _ = digest.Write(key)
 	return (digest.Sum64() << 16) >> 16
 }
 

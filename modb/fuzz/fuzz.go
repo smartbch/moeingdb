@@ -202,9 +202,9 @@ func getStartEndHeight(rs randsrc.RandSrc, cfg FuzzConfig) (uint32, uint32) {
 
 func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	ref := &modb.MockMoDB{}
-	os.RemoveAll("./test")
-	os.Mkdir("./test", 0700)
-	os.Mkdir("./test/data", 0700)
+	_ = os.RemoveAll("./test")
+	_ = os.Mkdir("./test", 0700)
+	_ = os.Mkdir("./test/data", 0700)
 	imp := modb.CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
 	blkList := make([]*types.Block, 0, cfg.TotalBlocks)
 	pruneTill := int64(-1)
