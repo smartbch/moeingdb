@@ -84,7 +84,7 @@ type BlockIndex struct {
 	TopicPosLists [][]uint32 `msg:"tp"`
 }
 
-type ExtractNotificationFromTxFn func (tx Tx, notiMap map[string]int64)
+type ExtractNotificationFromTxFn func(tx Tx, notiMap map[string]int64)
 
 // the interface provided by MoeingDB
 type DB interface {
@@ -111,10 +111,10 @@ type DB interface {
 }
 
 const (
-	FROM_ADDR_KEY byte = 9
-	TO_ADDR_KEY byte = 10
+	FROM_ADDR_KEY       byte = 9
+	TO_ADDR_KEY         byte = 10
 	TRANS_FROM_ADDR_KEY byte = 11
-	TRANS_TO_ADDR_KEY byte = 12
+	TRANS_TO_ADDR_KEY   byte = 12
 )
 
 var TransferEvent = [32]byte{
@@ -123,4 +123,3 @@ var TransferEvent = [32]byte{
 	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16,
 	0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
 }
-

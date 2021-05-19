@@ -9,7 +9,7 @@ import (
 )
 
 type LiteDB struct {
-	metadb   *RocksDB
+	metadb            *RocksDB
 	latestBlockhashes [512]*BlockHeightAndHash
 }
 
@@ -20,7 +20,7 @@ func NewLiteDB(path string) (db *LiteDB) {
 	if err != nil {
 		panic(err)
 	}
-	db = &LiteDB{metadb:metadb}
+	db = &LiteDB{metadb: metadb}
 	iter := metadb.Iterator([]byte("B"), []byte("C"))
 	defer iter.Close()
 	for iter.Valid() {
@@ -29,7 +29,6 @@ func NewLiteDB(path string) (db *LiteDB) {
 	}
 	return
 }
-
 
 func (db *LiteDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	blkHH := &BlockHeightAndHash{

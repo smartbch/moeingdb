@@ -79,14 +79,14 @@ type BlockHeightAndHash struct {
 }
 
 func (blkHH BlockHeightAndHash) toBytes() []byte {
-	var res [4+32]byte
+	var res [4 + 32]byte
 	binary.LittleEndian.PutUint32(res[:4], blkHH.Height)
 	copy(res[4:], blkHH.BlockHash[:])
 	return res[:]
 }
 
 func (blkHH *BlockHeightAndHash) setBytes(in []byte) *BlockHeightAndHash {
-	if len(in) != 4 + 32 {
+	if len(in) != 4+32 {
 		panic("Incorrect length for BlockHeightAndHash")
 	}
 	blkHH.Height = binary.LittleEndian.Uint32(in[:4])
@@ -183,7 +183,7 @@ func (db *MoDB) Close() {
 }
 
 func (db *MoDB) SetMaxEntryCount(c int) {
-	db.maxCount = (c*12)/10 // with 20% margin
+	db.maxCount = (c * 12) / 10 // with 20% margin
 	db.indexer.SetMaxOffsetCount(db.maxCount)
 }
 
@@ -308,7 +308,6 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 
 	atomic.StoreInt64(&db.height, blk.Height)
 }
-
 
 func (db *MoDB) SetExtractNotificationFn(fn types.ExtractNotificationFromTxFn) {
 	db.extractNotificationFromTx = fn
@@ -796,7 +795,7 @@ func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, 
 func (db *MoDB) QueryNotificationCounter(key []byte) int64 {
 	bz := db.metadb.Get(append([]byte{'N'}, key...))
 	if len(bz) == 0 {
-		return 0;
+		return 0
 	}
 	return int64(binary.LittleEndian.Uint64(bz))
 }
@@ -929,4 +928,3 @@ func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 		//fmt.Printf("TRANS_TO_ADDR_KEY %#v\n", k)
 	}
 }
-

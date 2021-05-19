@@ -56,7 +56,7 @@ func (idr Indexer) GetOffsetByTxID(id56 uint64) int64 {
 }
 
 func (idr Indexer) GetOffsetsByTxIDRange(id56Start, id56End uint64) []int64 {
-	return i64ListToSlice(C.indexer_offsets_by_tx_id_range(idr.ptr, C.uint64_t(id56Start), C.uint64_t(id56End)));
+	return i64ListToSlice(C.indexer_offsets_by_tx_id_range(idr.ptr, C.uint64_t(id56Start), C.uint64_t(id56End)))
 }
 
 func (idr Indexer) GetOffsetsByTxHash(hash48 uint64) []int64 {
