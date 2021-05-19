@@ -22,3 +22,7 @@
 *.gcno
 modb/fuzz/fuzz
 *.html
+
+.idea/
+modb/test/data/
+modb/test/rocksdb.db/
