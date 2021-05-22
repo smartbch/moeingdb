@@ -108,7 +108,7 @@ func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
 	db := &MoDB{
 		path:    path,
 		metadb:  metadb,
-		hpfile:  &hpfile,
+		hpfile:  hpfile,
 		blkBuf:  make([]byte, 0, 1024),
 		idxBuf:  make([]byte, 0, 1024),
 		seed:    seed,
@@ -136,7 +136,7 @@ func NewMoDB(path string) *MoDB {
 	db := &MoDB{
 		path:     path,
 		metadb:   metadb,
-		hpfile:   &hpfile,
+		hpfile:   hpfile,
 		blkBuf:   make([]byte, 0, 1024),
 		idxBuf:   make([]byte, 0, 1024),
 		indexer:  indexer.New(),

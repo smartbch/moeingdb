@@ -11,7 +11,8 @@ require (
 	github.com/facebookgo/subset v0.0.0-20200203212716-c811ad88dec4 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21 // indirect
-	github.com/smartbch/moeingads v0.0.0-20210316094340-d5789723dcbb
+	github.com/pkg/profile v1.5.0 // indirect
+	github.com/smartbch/moeingads v0.1.2-0.20210522145456-08ef94887390
 	github.com/stretchr/testify v1.4.0
 	github.com/tinylib/msgp v1.1.5
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
