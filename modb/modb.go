@@ -3,6 +3,7 @@ package modb
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -567,17 +568,24 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 }
 
 // given a blocks's height, return serialized information of its transactions.
-func (db *MoDB) GetTxListByHeight(height int64) [][]byte {
+func (db *MoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byte {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
-	id56Start := GetId56(uint32(height), 0)
-	id56End := GetId56(uint32(height+1), 0)
+	if end < start+1 {
+		end = start + 1
+	}
+	id56Start := GetId56(uint32(height), start)
+	id56End := GetId56(uint32(height), end)
 	offList := db.indexer.GetOffsetsByTxIDRange(id56Start, id56End)
 	res := make([][]byte, len(offList))
 	for i, offset40 := range offList {
 		res[i] = db.readInFile(offset40)
 	}
 	return res
+}
+
+func (db *MoDB) GetTxListByHeight(height int64) [][]byte {
+	return db.GetTxListByHeightWithRange(height, 0, math.MaxUint32)
 }
 
 // given a block's hash, feed possibly-correct serialized information to collectResult; if
