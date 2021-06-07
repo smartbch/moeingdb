@@ -74,6 +74,9 @@ func (db *LiteDB) GetBlockByHeight(height int64) []byte {
 func (db *LiteDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	return nil
 }
+func (db *LiteDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byte {
+	return nil
+}
 func (db *LiteDB) GetTxListByHeight(height int64) [][]byte {
 	return nil
 }

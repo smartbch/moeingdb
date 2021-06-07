@@ -72,6 +72,10 @@ func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 	return nil
 }
 
+func (db *MockMoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byte {
+	return db.GetTxListByHeight(height)[start:end]
+}
+
 func (db *MockMoDB) GetTxListByHeight(height int64) (res [][]byte) {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()

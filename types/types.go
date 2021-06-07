@@ -97,6 +97,7 @@ type DB interface {
 	GetBlockByHeight(height int64) []byte
 	GetTxByHeightAndIndex(height int64, index int) []byte
 	GetTxListByHeight(height int64) [][]byte
+	GetTxListByHeightWithRange(height int64, start, end int) [][]byte
 	GetBlockByHash(hash [32]byte, collectResult func([]byte) bool)
 	GetTxByHash(hash [32]byte, collectResult func([]byte) bool)
 	BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
