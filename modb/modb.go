@@ -3,7 +3,6 @@ package modb
 import (
 	"bytes"
 	"encoding/binary"
-	"math"
 	"sync"
 	"sync/atomic"
 
@@ -571,6 +570,12 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 func (db *MoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byte {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
+	if end < 0 {
+		end = (1<<24) - 1
+	}
+	if start > (1<<24) - 2 {
+		start = (1<<24) - 2
+	}
 	if end < start+1 {
 		end = start + 1
 	}
@@ -585,7 +590,7 @@ func (db *MoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byt
 }
 
 func (db *MoDB) GetTxListByHeight(height int64) [][]byte {
-	return db.GetTxListByHeightWithRange(height, 0, math.MaxUint32)
+	return db.GetTxListByHeightWithRange(height, 0, -1)
 }
 
 // given a block's hash, feed possibly-correct serialized information to collectResult; if
