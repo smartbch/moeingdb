@@ -858,13 +858,14 @@ func Sum48(seed [8]byte, key []byte) uint64 {
 }
 
 // append value at a slice at 'key'. If the slice does not exist, create it.
-func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) []uint32 {
+func AppendAtKey(m map[uint64][]uint32, key uint64, value uint32) {
 	_, ok := m[key]
 	if !ok {
 		m[key] = make([]uint32, 0, 10)
 	}
-	m[key] = append(m[key], value)
-	return m[key]
+	if len(m[key]) == 0 || m[key][len(m[key])-1] != value { // avoid duplication
+		m[key] = append(m[key], value)
+	}
 }
 
 // make sure (length+n)%32 == 0
