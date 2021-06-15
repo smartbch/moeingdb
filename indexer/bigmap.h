@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <iostream>
+#include <atomic>
 #include "cpp-btree-1.0.1/btree_map.h"
 
 //compact integer whose alignment=1
@@ -60,7 +61,7 @@ public:
 	typedef btree::btree_map<key_type, value_type> basic_map;
 private:
 	basic_map* _map_arr[slot_count];
-	size_t _size;
+	std::atomic_size_t _size;
 	bool debug;
 	// make sure a slot do have a basic_map in it
 	void create_if_null(int idx) {
@@ -98,7 +99,7 @@ public:
 	int get_slot_count() {
 		return slot_count;
 	}
-	// add (k,v) at the basic_map in the 'idx'-th slot
+	// add (k,v) at the basic_map in the 'idx'-th slot. This function is thread-safe
 	void set(uint64_t idx, key_type k, value_type v) {
 		bool old_exist;
 		put_new_and_get_old(idx, k, v, &old_exist);
@@ -119,7 +120,7 @@ public:
 		*old_exist = false;
 		return value_type{};
 	}
-	// erase (k,v) at the basic_map in the 'idx'-th slot
+	// erase (k,v) at the basic_map in the 'idx'-th slot. This function is thread-safe
 	void erase(uint64_t idx, key_type k) {
 		assert(idx < slot_count);
 		if(_map_arr[idx] == nullptr) return;
