@@ -209,6 +209,10 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
 
+	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+		Height:    uint32(blk.Height),
+		BlockHash: blk.BlockHash,
+	}
 	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
 	go db.postAddBlock(blk, pruneTillHeight)
@@ -250,10 +254,6 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	blkIdx.BeginOffset = offset40
 	blkIdx.BlockHash48 = Sum48(db.seed, blk.BlockHash[:])
 	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, offset40)
-	db.latestBlockhashes[int(blkIdx.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
-		Height:    blkIdx.Height,
-		BlockHash: blkIdx.BlockHash,
-	}
 
 	if !db.disableComplexIndex {
 		for i, tx := range blk.TxList {
