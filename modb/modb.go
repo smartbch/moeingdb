@@ -169,6 +169,10 @@ func NewMoDB(path string) *MoDB {
 	if err != nil {
 		panic(err)
 	}
+	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+		Height:    uint32(blk.Height),
+		BlockHash: blk.BlockHash,
+	}
 	db.wg.Add(1)
 	go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
 	db.wg.Wait()                // wait for goroutine to finish
