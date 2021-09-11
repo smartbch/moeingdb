@@ -574,7 +574,7 @@ func (db *MoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 func (db *MoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byte {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
-	if end < 0 {
+	if end < 0 || end > (1<<24) - 1 {
 		end = (1<<24) - 1
 	}
 	if start > (1<<24) - 2 {
