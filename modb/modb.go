@@ -3,6 +3,7 @@ package modb
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -196,6 +197,7 @@ func (db *MoDB) GetLatestHeight() int64 {
 func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
 	if blk == nil {
+		fmt.Println("blk is nil in addBlock")
 		return
 	}
 
@@ -213,6 +215,9 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 		Height:    uint32(blk.Height),
 		BlockHash: blk.BlockHash,
 	}
+	fmt.Printf("len(db.latestBlockhashes):%d\n", len(db.latestBlockhashes))
+	fmt.Printf("db.latestBlockhashes[%d].hash is %v\n", blk.Height, db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)].BlockHash)
+
 	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
 	go db.postAddBlock(blk, pruneTillHeight)
@@ -533,13 +538,17 @@ func (db *MoDB) readInFile(offset40 int64) []byte {
 
 // given a recent block's height, return its blockhash
 func (db *MoDB) GetBlockHashByHeight(height int64) (res [32]byte) {
+	fmt.Printf("len(db.latestBlockhashes) in getBlockHashByHeight:%d\n", len(db.latestBlockhashes))
 	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)]
 	if heightAndHash == nil {
+		fmt.Printf("heightAndHash is nil\n")
 		return
 	}
+	fmt.Printf("heightAndHash:height:%d,hash:%v,height param:%d\n", heightAndHash.Height, heightAndHash.BlockHash, height)
 	if heightAndHash.Height == uint32(height) {
 		res = heightAndHash.BlockHash
 	}
+	fmt.Printf("height:%d != heightAndHash.Height:%d\n", height, heightAndHash.Height)
 	return
 }
 
@@ -571,10 +580,10 @@ func (db *MoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byt
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	if end < 0 {
-		end = (1<<24) - 1
+		end = (1 << 24) - 1
 	}
-	if start > (1<<24) - 2 {
-		start = (1<<24) - 2
+	if start > (1<<24)-2 {
+		start = (1 << 24) - 2
 	}
 	if end < start+1 {
 		end = start + 1
