@@ -70,7 +70,7 @@ type MoDB struct {
 	//Disable complex transaction index: from-addr to-addr logs
 	disableComplexIndex bool
 	//Cache for latest blockhashes
-	latestBlockhashes [512]*BlockHeightAndHash
+	latestBlockhashes [512]atomic.Value
 }
 
 type BlockHeightAndHash struct {
@@ -169,10 +169,10 @@ func NewMoDB(path string) *MoDB {
 	if err != nil {
 		panic(err)
 	}
-	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)].Store(&BlockHeightAndHash{
 		Height:    uint32(blk.Height),
 		BlockHash: blk.BlockHash,
-	}
+	})
 	db.wg.Add(1)
 	go db.postAddBlock(blk, -1) //pruneTillHeight==-1 means no prune
 	db.wg.Wait()                // wait for goroutine to finish
@@ -213,10 +213,10 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
 
-	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)].Store(&BlockHeightAndHash{
 		Height:    uint32(blk.Height),
 		BlockHash: blk.BlockHash,
-	}
+	})
 	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
 	go db.postAddBlock(blk, pruneTillHeight)
@@ -494,10 +494,10 @@ func (db *MoDB) reloadToIndexer() {
 // reload one block's index information into in-memory indexer
 func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 	db.indexer.AddBlock(blkIdx.Height, blkIdx.BlockHash48, blkIdx.BeginOffset)
-	db.latestBlockhashes[int(blkIdx.Height)%len(db.latestBlockhashes)] = &BlockHeightAndHash{
+	db.latestBlockhashes[int(blkIdx.Height)%len(db.latestBlockhashes)].Store(&BlockHeightAndHash{
 		Height:    blkIdx.Height,
 		BlockHash: blkIdx.BlockHash,
-	}
+	})
 	for i, txHash48 := range blkIdx.TxHash48List {
 		id56 := GetId56(blkIdx.Height, i)
 		db.indexer.AddTx(id56, txHash48, blkIdx.TxPosList[i])
@@ -537,7 +537,7 @@ func (db *MoDB) readInFile(offset40 int64) []byte {
 
 // given a recent block's height, return its blockhash
 func (db *MoDB) GetBlockHashByHeight(height int64) (res [32]byte) {
-	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)]
+	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)].Load().(*BlockHeightAndHash)
 	if heightAndHash == nil {
 		return
 	}
