@@ -119,6 +119,10 @@ func (db *MockMoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) 
 	}
 }
 
+func (db *MockMoDB) GetTxSigByHash(hash [32]byte) (res [65]byte) {
+	return
+}
+
 func hasTopic(log types.Log, t [32]byte) bool {
 	for _, topic := range log.Topics {
 		if bytes.Equal(topic[:], t[:]) {

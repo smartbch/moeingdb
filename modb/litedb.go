@@ -84,6 +84,9 @@ func (db *LiteDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool)
 }
 func (db *LiteDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 }
+func (db *LiteDB) GetTxSigByHash(hash [32]byte) (res [65]byte) {
+	return
+}
 func (db *LiteDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
 }
 func (db *LiteDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
