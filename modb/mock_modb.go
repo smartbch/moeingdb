@@ -23,7 +23,7 @@ func (db *MockMoDB) GetLatestHeight() int64 {
 	return db.height
 }
 
-func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
+func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap map[[32]byte][65]byte) {
 	if blk == nil {
 		return
 	}

@@ -197,7 +197,7 @@ func (db *MoDB) GetLatestHeight() int64 {
 
 // Add a new block for indexing, and prune the index information for blocks before pruneTillHeight
 // The ownership of 'blk' will be transferred to MoDB and cannot be changed by out world!
-func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
+func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap map[[32]byte][65]byte) {
 	db.wg.Wait() // wait for previous postAddBlock goroutine to finish
 	if blk == nil {
 		return
@@ -211,7 +211,12 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
 	if err != nil {
 		panic(err)
 	}
-	db.metadb.SetSync([]byte("NEW"), db.blkBuf)
+	db.metadb.OpenNewBatch()
+	db.metadb.CurrBatch().Set([]byte("NEW"), db.blkBuf)
+	for txid, sig := range txid2sigMap {
+		db.metadb.CurrBatch().Set(append([]byte("SIG"), txid[:]...), sig[:])
+	}
+	db.metadb.CloseOldBatch()
 
 	db.latestBlockhashes[int(blk.Height)%len(db.latestBlockhashes)].Store(&BlockHeightAndHash{
 		Height:    uint32(blk.Height),
@@ -623,6 +628,14 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 			return
 		}
 	}
+}
+
+func (db *MoDB) GetTxSigByHash(hash [32]byte) (res [65]byte) {
+	bz := db.metadb.Get(append([]byte("SIG"), hash[:]...))
+	if len(bz) != 0 {
+		copy(res[:], bz)
+	}
+	return
 }
 
 type addrAndTopics struct {

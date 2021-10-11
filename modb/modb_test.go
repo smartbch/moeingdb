@@ -136,9 +136,9 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 		},
 	}
 	if withAdd {
-		db.AddBlock(&blk1, -1)
-		db.AddBlock(&blk2, -1)
-		db.AddBlock(nil, -1)
+		db.AddBlock(&blk1, -1, nil)
+		db.AddBlock(&blk2, -1, nil)
+		db.AddBlock(nil, -1, nil)
 	}
 
 	bz := db.GetBlockByHeight(1)
@@ -237,8 +237,8 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 			},
 		},
 	}
-	db.AddBlock(&blk3, 2)
-	db.AddBlock(nil, -1)
+	db.AddBlock(&blk3, 2, nil)
+	db.AddBlock(nil, -1, nil)
 	//time.Sleep(4 * time.Second)
 
 	bz = db.GetBlockByHeight(1)
@@ -450,9 +450,9 @@ func TestNotificationCounter(t *testing.T) {
 			},
 		},
 	}
-	db.AddBlock(&blk1, -1)
-	db.AddBlock(&blk2, -1)
-	db.AddBlock(nil, -1)
+	db.AddBlock(&blk1, -1, nil)
+	db.AddBlock(&blk2, -1, nil)
+	db.AddBlock(nil, -1, nil)
 	to_alice := append([]byte{types.TO_ADDR_KEY}, alice[:]...)
 	to_bob := append([]byte{types.TO_ADDR_KEY}, bob[:]...)
 	to_cindy := append([]byte{types.TO_ADDR_KEY}, cindy[:]...)

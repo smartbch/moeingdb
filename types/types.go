@@ -92,7 +92,7 @@ type DB interface {
 	SetExtractNotificationFn(fn ExtractNotificationFromTxFn)
 	SetDisableComplexIndex(b bool)
 	GetLatestHeight() int64
-	AddBlock(blk *Block, pruneTillHeight int64)
+	AddBlock(blk *Block, pruneTillHeight int64, txid2sigMap map[[32]byte][65]byte)
 	GetBlockHashByHeight(height int64) [32]byte
 	GetBlockByHeight(height int64) []byte
 	GetTxByHeightAndIndex(height int64, index int) []byte

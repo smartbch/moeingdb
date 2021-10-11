@@ -30,7 +30,7 @@ func NewLiteDB(path string) (db *LiteDB) {
 	return
 }
 
-func (db *LiteDB) AddBlock(blk *types.Block, pruneTillHeight int64) {
+func (db *LiteDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap map[[32]byte][65]byte) {
 	blkHH := &BlockHeightAndHash{
 		Height:    uint32(blk.Height),
 		BlockHash: blk.BlockHash,

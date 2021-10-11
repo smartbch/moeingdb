@@ -216,20 +216,20 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 		//fmt.Printf("Block %#v\n", blk)
 		blkList = append(blkList, blk)
 		if h >= pruneTill {
-			ref.AddBlock(blk, -1)
+			ref.AddBlock(blk, -1, nil)
 		}
 		if h == int64(cfg.TotalBlocks)-1 {
-			imp.AddBlock(blk, pruneTill)
+			imp.AddBlock(blk, pruneTill, nil)
 		} else {
-			imp.AddBlock(blk, -1)
+			imp.AddBlock(blk, -1, nil)
 			if (h % cfg.ReplayLastEveryN) == (rs.GetInt64() % cfg.ReplayLastEveryN) {
 				fmt.Printf("Now we replay %d\n", h)
-				imp.AddBlock(blk, -1) // replay the last block
+				imp.AddBlock(blk, -1, nil) // replay the last block
 			}
 		}
 	}
-	ref.AddBlock(nil, -1)
-	imp.AddBlock(nil, -1)
+	ref.AddBlock(nil, -1, nil)
+	imp.AddBlock(nil, -1, nil)
 	if rs.GetUint32()%2 == 1 { // 50% possibility to re-open
 		fmt.Printf("Reopen!\n")
 		imp.Close()
