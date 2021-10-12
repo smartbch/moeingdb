@@ -44,7 +44,7 @@ func TestDB(t *testing.T) {
 	os.RemoveAll("./test")
 	_ = os.Mkdir("./test", 0700)
 	_ = os.Mkdir("./test/data", 0700)
-	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
+	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8}, log.NewNopLogger())
 	runDBTest(t, db, true, false)
 	db.Close()
 	db = NewMoDB("./test", log.NewNopLogger())
@@ -363,7 +363,7 @@ func TestNotificationCounter(t *testing.T) {
 	_ = os.RemoveAll("./test")
 	_ = os.Mkdir("./test", 0700)
 	_ = os.Mkdir("./test/data", 0700)
-	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
+	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8}, log.NewNopLogger())
 	var h0, h1, h2, h3, h4, h5, h6, h7, h8 [32]byte
 	var t0, t1, t2 [32]byte
 	for i := range h0 {

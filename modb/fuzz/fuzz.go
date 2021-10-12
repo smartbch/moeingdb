@@ -206,7 +206,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	_ = os.RemoveAll("./test")
 	_ = os.Mkdir("./test", 0700)
 	_ = os.Mkdir("./test/data", 0700)
-	imp := modb.CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
+	imp := modb.CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8}, log.NewNopLogger())
 	blkList := make([]*types.Block, 0, cfg.TotalBlocks)
 	pruneTill := int64(-1)
 	if rs.GetUint32()%2 == 1 { // 50% possibility to prune

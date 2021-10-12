@@ -101,7 +101,7 @@ func (blkHH *BlockHeightAndHash) setBytes(in []byte) *BlockHeightAndHash {
 
 var _ types.DB = (*MoDB)(nil)
 
-func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
+func CreateEmptyMoDB(path string, seed [8]byte, logger log.Logger) *MoDB {
 	metadb, err := indextree.NewRocksDB("rocksdb", path)
 	if err != nil {
 		panic(err)
@@ -118,7 +118,7 @@ func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
 		idxBuf:  make([]byte, 0, 1024),
 		seed:    seed,
 		indexer: indexer.New(),
-		logger:  log.NewNopLogger(),
+		logger:  logger,
 	}
 	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
 	var zero [8]byte
