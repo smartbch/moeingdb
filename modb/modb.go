@@ -3,12 +3,15 @@ package modb
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/cespare/xxhash"
 	"github.com/smartbch/moeingads/datatree"
 	"github.com/smartbch/moeingads/indextree"
+	"github.com/tendermint/tendermint/libs/log"
 
 	"github.com/smartbch/moeingdb/indexer"
 	"github.com/smartbch/moeingdb/types"
@@ -71,6 +74,8 @@ type MoDB struct {
 	disableComplexIndex bool
 	//Cache for latest blockhashes
 	latestBlockhashes [512]atomic.Value
+
+	logger log.Logger
 }
 
 type BlockHeightAndHash struct {
@@ -113,6 +118,7 @@ func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
 		idxBuf:  make([]byte, 0, 1024),
 		seed:    seed,
 		indexer: indexer.New(),
+		logger:  log.NewNopLogger(),
 	}
 	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
 	var zero [8]byte
@@ -123,7 +129,7 @@ func CreateEmptyMoDB(path string, seed [8]byte) *MoDB {
 	return db
 }
 
-func NewMoDB(path string) *MoDB {
+func NewMoDB(path string, logger log.Logger) *MoDB {
 	metadb, err := indextree.NewRocksDB("rocksdb", path)
 	if err != nil {
 		panic(err)
@@ -141,6 +147,7 @@ func NewMoDB(path string) *MoDB {
 		idxBuf:   make([]byte, 0, 1024),
 		indexer:  indexer.New(),
 		maxCount: -1,
+		logger:   logger,
 	}
 	db.SetExtractNotificationFn(DefaultExtractNotificationFromTxFn)
 	// for a half-committed block, hpfile may have some garbage after the position
@@ -222,6 +229,7 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap ma
 		Height:    uint32(blk.Height),
 		BlockHash: blk.BlockHash,
 	})
+	db.logger.Debug(fmt.Sprintf("addBlock, height:%d, hash:%s", blk.Height, EncodeToHex(blk.BlockHash[:])))
 	// start the postAddBlock goroutine which should finish before the next indexing job
 	db.wg.Add(1)
 	go db.postAddBlock(blk, pruneTillHeight)
@@ -544,10 +552,14 @@ func (db *MoDB) readInFile(offset40 int64) []byte {
 func (db *MoDB) GetBlockHashByHeight(height int64) (res [32]byte) {
 	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)].Load().(*BlockHeightAndHash)
 	if heightAndHash == nil {
+		db.logger.Debug(fmt.Sprintf("getBlockHashByHeight, heightAndHash is nil in height:%d", height))
 		return
 	}
+	db.logger.Debug(fmt.Sprintf("getBlockHashByHeight: heightAndHash.height:%d, heightAndHash.hash:%s in height:%d", heightAndHash.Height, hex.EncodeToString(heightAndHash.BlockHash[:]), height))
 	if heightAndHash.Height == uint32(height) {
 		res = heightAndHash.BlockHash
+	} else {
+		db.logger.Debug(fmt.Sprintf("GetBlockHashByHeight: height:%d != heightAndHash.Height:%d", height, heightAndHash.Height))
 	}
 	return
 }
@@ -958,4 +970,11 @@ func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 		addToMap(string(k))
 		//fmt.Printf("TRANS_TO_ADDR_KEY %#v\n", k)
 	}
+}
+
+func EncodeToHex(b []byte) string {
+	enc := make([]byte, len(b)*2+2)
+	copy(enc, "0x")
+	hex.Encode(enc[2:], b)
+	return string(enc)
 }

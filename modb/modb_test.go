@@ -6,8 +6,10 @@ import (
 	"testing"
 	//"time"
 
-	"github.com/smartbch/moeingdb/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/tendermint/tendermint/libs/log"
+
+	"github.com/smartbch/moeingdb/types"
 )
 
 type Block = types.Block
@@ -45,7 +47,7 @@ func TestDB(t *testing.T) {
 	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8})
 	runDBTest(t, db, true, false)
 	db.Close()
-	db = NewMoDB("./test")
+	db = NewMoDB("./test", log.NewNopLogger())
 	runDBTest(t, db, false, true)
 	db.Close()
 }

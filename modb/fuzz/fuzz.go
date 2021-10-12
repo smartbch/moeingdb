@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/coinexchain/randsrc"
+	"github.com/tendermint/tendermint/libs/log"
 
 	"github.com/smartbch/moeingdb/modb"
 	"github.com/smartbch/moeingdb/types"
@@ -233,7 +234,7 @@ func RunFuzz(rs randsrc.RandSrc, cfg FuzzConfig) {
 	if rs.GetUint32()%2 == 1 { // 50% possibility to re-open
 		fmt.Printf("Reopen!\n")
 		imp.Close()
-		imp = modb.NewMoDB("./test")
+		imp = modb.NewMoDB("./test", log.NewNopLogger())
 	}
 	for h, blk := range blkList {
 		if int64(h) < pruneTill {
