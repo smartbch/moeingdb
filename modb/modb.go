@@ -296,7 +296,7 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 
 	db.metadb.OpenNewBatch()
 	blkKey := []byte("B1234")
-	binary.LittleEndian.PutUint32(blkKey[1:], blkIdx.Height)
+	binary.BigEndian.PutUint32(blkKey[1:], blkIdx.Height)
 	if !db.metadb.Has(blkKey) { // if we have not processed this block before
 		db.updateNotificationCounters(blk)
 	}
@@ -378,9 +378,9 @@ func (db *MoDB) pruneTillBlock(pruneTillHeight int64) {
 	}
 	// get an iterator in the range [0, pruneTillHeight)
 	start := []byte("B1234")
-	binary.LittleEndian.PutUint32(start[1:], 0)
+	binary.BigEndian.PutUint32(start[1:], 0)
 	end := []byte("B1234")
-	binary.LittleEndian.PutUint32(end[1:], uint32(pruneTillHeight))
+	binary.BigEndian.PutUint32(end[1:], uint32(pruneTillHeight))
 	iter := db.metadb.Iterator(start, end)
 	defer iter.Close()
 	keys := make([][]byte, 0, 100)
