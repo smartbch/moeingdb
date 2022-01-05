@@ -160,13 +160,13 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	assert.Equal(t, 0, len(bz))
 
 	bz = db.GetTxByHeightAndIndex(1, 0)
-	assert.Equal(t, "Tx1-0", string(bz))
+	assert.Equal(t, "Tx1-0", string(bz[65:]))
 	bz = db.GetTxByHeightAndIndex(1, 1)
-	assert.Equal(t, "Tx1-1", string(bz))
+	assert.Equal(t, "Tx1-1", string(bz[65:]))
 	bz = db.GetTxByHeightAndIndex(2, 0)
-	assert.Equal(t, "Tx2-0", string(bz))
+	assert.Equal(t, "Tx2-0", string(bz[65:]))
 	bz = db.GetTxByHeightAndIndex(2, 1)
-	assert.Equal(t, "Tx2-1", string(bz))
+	assert.Equal(t, "Tx2-1", string(bz[65:]))
 	bz = db.GetTxByHeightAndIndex(2, 10000)
 	assert.Equal(t, 0, len(bz))
 	bz = db.GetTxByHeightAndIndex(20000, 1)
@@ -174,16 +174,16 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 
 	bz = nil
 	db.GetTxByHash(h1, func(res []byte) bool { bz = res; return true })
-	assert.Equal(t, "Tx1-0", string(bz))
+	assert.Equal(t, "Tx1-0", string(bz[65:]))
 	bz = nil
 	db.GetTxByHash(h2, func(res []byte) bool { bz = res; return true })
-	assert.Equal(t, "Tx1-1", string(bz))
+	assert.Equal(t, "Tx1-1", string(bz[65:]))
 	bz = nil
 	db.GetTxByHash(h4, func(res []byte) bool { bz = res; return true })
-	assert.Equal(t, "Tx2-0", string(bz))
+	assert.Equal(t, "Tx2-0", string(bz[65:]))
 	bz = nil
 	db.GetTxByHash(h5, func(res []byte) bool { bz = res; return true })
-	assert.Equal(t, "Tx2-1", string(bz))
+	assert.Equal(t, "Tx2-1", string(bz[65:]))
 	bz = nil
 	db.GetTxByHash(h0, func(res []byte) bool { bz = res; return true })
 	assert.Equal(t, 0, len(bz))
@@ -267,15 +267,15 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	assert.Equal(t, "block3", string(bz))
 
 	bz = db.GetTxByHeightAndIndex(3, 0)
-	assert.Equal(t, "Tx3-0", string(bz))
+	assert.Equal(t, "Tx3-0", string(bz[65:]))
 	bz = db.GetTxByHeightAndIndex(3, 1)
-	assert.Equal(t, "Tx3-1", string(bz))
+	assert.Equal(t, "Tx3-1", string(bz[65:]))
 	bz = nil
 	db.GetTxByHash(h7, func(res []byte) bool { bz = res; return true })
-	assert.Equal(t, "Tx3-0", string(bz))
+	assert.Equal(t, "Tx3-0", string(bz[65:]))
 	bz = nil
 	db.GetTxByHash(h8, func(res []byte) bool { bz = res; return true })
-	assert.Equal(t, "Tx3-1", string(bz))
+	assert.Equal(t, "Tx3-1", string(bz[65:]))
 
 	res = res[:0]
 	db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 4, getRes)

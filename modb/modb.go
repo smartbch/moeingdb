@@ -23,6 +23,7 @@ import (
 "NEW" new block's information for indexing, deleted after consumption
 "BXXXX" ('B' followed by 4 bytes) the indexing information for a block
 "N------" ('N' followed by variable-length bytes) the notification counters
+"SIG+txid32" caches transactions' signatures
 */
 
 const (
@@ -274,7 +275,8 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 
 	if !db.disableComplexIndex {
 		for i, tx := range blk.TxList {
-			offset40 = db.appendToFile(tx.Content)
+			sig := db.getTxSigByHashFromMeta(tx.HashId)
+			offset40 = db.appendToFile(append(sig[:], tx.Content...))
 			blkIdx.TxPosList[i] = offset40
 			blkIdx.TxHash48List[i] = Sum48(db.seed, tx.HashId[:])
 			id56 := GetId56(blkIdx.Height, i)
@@ -295,6 +297,9 @@ func (db *MoDB) postAddBlock(blk *types.Block, pruneTillHeight int64) {
 	}
 
 	db.metadb.OpenNewBatch()
+	for _, tx := range blk.TxList {
+		db.metadb.CurrBatch().Delete(append([]byte("SIG"), tx.HashId[:]...))
+	}
 	blkKey := []byte("B1234")
 	binary.BigEndian.PutUint32(blkKey[1:], blkIdx.Height)
 	if !db.metadb.Has(blkKey) { // if we have not processed this block before
@@ -642,7 +647,7 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	}
 }
 
-func (db *MoDB) GetTxSigByHash(hash [32]byte) (res [65]byte) {
+func (db *MoDB) getTxSigByHashFromMeta(hash [32]byte) (res [65]byte) {
 	bz := db.metadb.Get(append([]byte("SIG"), hash[:]...))
 	if len(bz) != 0 {
 		copy(res[:], bz)
@@ -950,25 +955,18 @@ func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 			notiMap[k] = 1
 		}
 	}
-	//fmt.Printf("GOT_TX %#v\n", tx)
 	k := append([]byte{types.FROM_ADDR_KEY}, tx.SrcAddr[:]...)
 	addToMap(string(k))
 	k = append([]byte{types.TO_ADDR_KEY}, tx.DstAddr[:]...)
 	addToMap(string(k))
-	//fmt.Printf("TO_ADDR_KEY %#v\n", k)
-	//fmt.Printf("len tx.LogList %d\n", len(tx.LogList))
 	for _, log := range tx.LogList {
-		//fmt.Printf("Topic[0] %#v\n", log.Topics[0][:])
-		//fmt.Printf("TransferEvent %#v\n", types.TransferEvent[:])
 		if len(log.Topics) != 3 || !bytes.Equal(log.Topics[0][:], types.TransferEvent[:]) {
 			continue
 		}
 		k := append(append([]byte{types.TRANS_FROM_ADDR_KEY}, log.Address[:]...), log.Topics[1][:]...)
 		addToMap(string(k))
-		//fmt.Printf("TRANS_FROM_ADDR_KEY %#v\n", k)
 		k = append(append([]byte{types.TRANS_TO_ADDR_KEY}, log.Address[:]...), log.Topics[2][:]...)
 		addToMap(string(k))
-		//fmt.Printf("TRANS_TO_ADDR_KEY %#v\n", k)
 	}
 }
 

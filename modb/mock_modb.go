@@ -59,6 +59,7 @@ func (db *MockMoDB) GetBlockByHeight(height int64) []byte {
 }
 
 func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
+	var sig [65]byte
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	for _, blk := range db.blkMap {
@@ -66,7 +67,7 @@ func (db *MockMoDB) GetTxByHeightAndIndex(height int64, index int) []byte {
 			if index >= len(blk.TxList) {
 				return nil
 			}
-			return blk.TxList[index].Content
+			return append(sig[:], blk.TxList[index].Content...)
 		}
 	}
 	return nil
@@ -77,13 +78,14 @@ func (db *MockMoDB) GetTxListByHeightWithRange(height int64, start, end int) [][
 }
 
 func (db *MockMoDB) GetTxListByHeight(height int64) (res [][]byte) {
+	var sig [65]byte
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	for _, blk := range db.blkMap {
 		if blk.Height == height {
 			res = make([][]byte, len(blk.TxList))
 			for i, tx := range blk.TxList {
-				res[i] = tx.Content
+				res[i] = append(sig[:], tx.Content...)
 			}
 			break
 		}
@@ -105,22 +107,19 @@ func (db *MockMoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) boo
 }
 
 func (db *MockMoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
+	var sig [65]byte
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	for _, blk := range db.blkMap {
 		for _, tx := range blk.TxList {
 			if bytes.Equal(tx.HashId[:], hash[:]) {
-				ok := collectResult(tx.Content)
+				ok := collectResult(append(sig[:], tx.Content...))
 				if !ok {
 					panic("should be true!")
 				}
 			}
 		}
 	}
-}
-
-func (db *MockMoDB) GetTxSigByHash(hash [32]byte) (res [65]byte) {
-	return
 }
 
 func hasTopic(log types.Log, t [32]byte) bool {
