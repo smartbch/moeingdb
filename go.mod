@@ -9,7 +9,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.0.8 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21 // indirect
-	github.com/smartbch/moeingads v0.3.0
+	github.com/smartbch/moeingads v0.4.0
 	github.com/stretchr/testify v1.7.0
 	github.com/tendermint/tendermint v0.34.10
 	github.com/tinylib/msgp v1.1.5
