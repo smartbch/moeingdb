@@ -1,6 +1,6 @@
 module github.com/smartbch/moeingdb
 
-go 1.17
+go 1.18
 
 require (
 	github.com/cespare/xxhash v1.1.0

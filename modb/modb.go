@@ -949,11 +949,7 @@ func parallelRun(workerCount int, fn func(workerID int)) {
 // To-address of SEP20-Transfer
 func DefaultExtractNotificationFromTxFn(tx types.Tx, notiMap map[string]int64) {
 	var addToMap = func(k string) {
-		if _, ok := notiMap[k]; ok {
-			notiMap[k] += 1
-		} else {
-			notiMap[k] = 1
-		}
+		notiMap[k] += 1
 	}
 	k := append([]byte{types.FROM_ADDR_KEY}, tx.SrcAddr[:]...)
 	addToMap(string(k))
