@@ -1,6 +1,7 @@
 package modb
 
 import (
+	"bytes"
 	//"fmt"
 	"os"
 	"testing"
@@ -190,6 +191,7 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 
 	var res []byte
 	var getRes = func(bz []byte) bool {
+		bz = bytes.TrimLeft(bz, string([]byte{0x0}))
 		res = append(res, byte(' '))
 		res = append(res, bz...)
 		return true
@@ -291,6 +293,7 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	assert.Equal(t, " Tx2-1 Tx3-0 Tx3-1", string(res))
 	res = res[:0]
 	var getOnly1Res = func(bz []byte) bool {
+		bz = bytes.TrimLeft(bz, string([]byte{0x0}))
 		res = append(res, byte(' '))
 		res = append(res, bz...)
 		return false
