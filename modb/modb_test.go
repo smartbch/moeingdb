@@ -1,8 +1,6 @@
 package modb
 
 import (
-	"bytes"
-	//"fmt"
 	"os"
 	"testing"
 	//"time"
@@ -46,19 +44,19 @@ func TestDB(t *testing.T) {
 	_ = os.Mkdir("./test", 0700)
 	_ = os.Mkdir("./test/data", 0700)
 	db := CreateEmptyMoDB("./test", [8]byte{1, 2, 3, 4, 5, 6, 7, 8}, log.NewNopLogger())
-	runDBTest(t, db, true, false)
+	runDBTest(t, db, true, false, true)
 	db.Close()
 	db = NewMoDB("./test", log.NewNopLogger())
-	runDBTest(t, db, false, true)
+	runDBTest(t, db, false, true, true)
 	db.Close()
 }
 
 func TestMockDB(t *testing.T) {
 	db := &MockMoDB{}
-	runDBTest(t, db, true, false)
+	runDBTest(t, db, true, false, false)
 }
 
-func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
+func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool, removeSig bool) {
 	var h0, h1, h2, h3, h4, h5, h6, h7, h8 [32]byte
 	var t0, t1, t2 [32]byte
 	for i := range h0 {
@@ -191,8 +189,10 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 
 	var res []byte
 	var getRes = func(bz []byte) bool {
-		bz = bytes.TrimLeft(bz, string([]byte{0x0}))
 		res = append(res, byte(' '))
+		if removeSig {
+			bz = bz[65:]
+		}
 		res = append(res, bz...)
 		return true
 	}
@@ -293,8 +293,10 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool) {
 	assert.Equal(t, " Tx2-1 Tx3-0 Tx3-1", string(res))
 	res = res[:0]
 	var getOnly1Res = func(bz []byte) bool {
-		bz = bytes.TrimLeft(bz, string([]byte{0x0}))
 		res = append(res, byte(' '))
+		if removeSig {
+			bz = bz[65:]
+		}
 		res = append(res, bz...)
 		return false
 	}
