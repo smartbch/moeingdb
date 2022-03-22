@@ -57,6 +57,13 @@ func (blk Block) Clone() (res Block) {
 	return
 }
 
+// Extend the 'Block' type to include txid2sigMap and moeingads's update data
+type ExtendedBlock struct {
+	Block
+	Txid2sigMap map[[32]byte][65]byte `msg:"t2s"`
+	UpdateOfADS map[string]string     `msg:"ua"`
+}
+
 // an entry for address index or topic index
 type IndexEntry struct {
 	Hash48  uint64   `msg:"h"`

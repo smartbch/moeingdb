@@ -1175,6 +1175,208 @@ func (z *BlockIndex) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
+func (z *ExtendedBlock) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Block":
+			err = z.Block.DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, "Block")
+				return
+			}
+		case "ua":
+			var zb0002 uint32
+			zb0002, err = dc.ReadMapHeader()
+			if err != nil {
+				err = msgp.WrapError(err, "UpdateOfADS")
+				return
+			}
+			if z.UpdateOfADS == nil {
+				z.UpdateOfADS = make(map[string]string, zb0002)
+			} else if len(z.UpdateOfADS) > 0 {
+				for key := range z.UpdateOfADS {
+					delete(z.UpdateOfADS, key)
+				}
+			}
+			for zb0002 > 0 {
+				zb0002--
+				var za0001 string
+				var za0002 string
+				za0001, err = dc.ReadString()
+				if err != nil {
+					err = msgp.WrapError(err, "UpdateOfADS")
+					return
+				}
+				za0002, err = dc.ReadString()
+				if err != nil {
+					err = msgp.WrapError(err, "UpdateOfADS", za0001)
+					return
+				}
+				z.UpdateOfADS[za0001] = za0002
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *ExtendedBlock) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "Block"
+	err = en.Append(0x82, 0xa5, 0x42, 0x6c, 0x6f, 0x63, 0x6b)
+	if err != nil {
+		return
+	}
+	err = z.Block.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Block")
+		return
+	}
+	// write "ua"
+	err = en.Append(0xa2, 0x75, 0x61)
+	if err != nil {
+		return
+	}
+	err = en.WriteMapHeader(uint32(len(z.UpdateOfADS)))
+	if err != nil {
+		err = msgp.WrapError(err, "UpdateOfADS")
+		return
+	}
+	for za0001, za0002 := range z.UpdateOfADS {
+		err = en.WriteString(za0001)
+		if err != nil {
+			err = msgp.WrapError(err, "UpdateOfADS")
+			return
+		}
+		err = en.WriteString(za0002)
+		if err != nil {
+			err = msgp.WrapError(err, "UpdateOfADS", za0001)
+			return
+		}
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z *ExtendedBlock) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "Block"
+	o = append(o, 0x82, 0xa5, 0x42, 0x6c, 0x6f, 0x63, 0x6b)
+	o, err = z.Block.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "Block")
+		return
+	}
+	// string "ua"
+	o = append(o, 0xa2, 0x75, 0x61)
+	o = msgp.AppendMapHeader(o, uint32(len(z.UpdateOfADS)))
+	for za0001, za0002 := range z.UpdateOfADS {
+		o = msgp.AppendString(o, za0001)
+		o = msgp.AppendString(o, za0002)
+	}
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ExtendedBlock) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Block":
+			bts, err = z.Block.UnmarshalMsg(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Block")
+				return
+			}
+		case "ua":
+			var zb0002 uint32
+			zb0002, bts, err = msgp.ReadMapHeaderBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "UpdateOfADS")
+				return
+			}
+			if z.UpdateOfADS == nil {
+				z.UpdateOfADS = make(map[string]string, zb0002)
+			} else if len(z.UpdateOfADS) > 0 {
+				for key := range z.UpdateOfADS {
+					delete(z.UpdateOfADS, key)
+				}
+			}
+			for zb0002 > 0 {
+				var za0001 string
+				var za0002 string
+				zb0002--
+				za0001, bts, err = msgp.ReadStringBytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "UpdateOfADS")
+					return
+				}
+				za0002, bts, err = msgp.ReadStringBytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "UpdateOfADS", za0001)
+					return
+				}
+				z.UpdateOfADS[za0001] = za0002
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *ExtendedBlock) Msgsize() (s int) {
+	s = 1 + 6 + z.Block.Msgsize() + 3 + msgp.MapHeaderSize
+	if z.UpdateOfADS != nil {
+		for za0001, za0002 := range z.UpdateOfADS {
+			_ = za0002
+			s += msgp.StringPrefixSize + len(za0001) + msgp.StringPrefixSize + len(za0002)
+		}
+	}
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *IndexEntry) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
