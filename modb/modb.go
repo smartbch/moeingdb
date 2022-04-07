@@ -516,6 +516,7 @@ func (db *MoDB) reloadBlockToIndexer(blkIdx *types.BlockIndex) {
 		Height:    blkIdx.Height,
 		BlockHash: blkIdx.BlockHash,
 	})
+	atomic.StoreInt64(&db.height, int64(blkIdx.Height))
 	for i, txHash48 := range blkIdx.TxHash48List {
 		id56 := GetId56(blkIdx.Height, i)
 		db.indexer.AddTx(id56, txHash48, blkIdx.TxPosList[i])
