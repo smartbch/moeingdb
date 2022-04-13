@@ -119,8 +119,11 @@ func (db *SyncDB) Set(height int64, data []byte) {
 func (db *SyncDB) AddBlock(height int64, blk *types.Block, txid2sigMap map[[32]byte][65]byte, updateOfADS map[string]string) {
 	xblk := &types.ExtendedBlock{
 		Block:       *blk,
-		Txid2sigMap: txid2sigMap,
+		Txid2sigMap: make(map[string][65]byte, len(txid2sigMap)),
 		UpdateOfADS: updateOfADS,
+	}
+	for txid, sig := range txid2sigMap {
+		xblk.Txid2sigMap[string(txid[:])] = sig
 	}
 	bz, err := xblk.MarshalMsg(nil)
 	if err != nil {

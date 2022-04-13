@@ -60,7 +60,7 @@ func (blk Block) Clone() (res Block) {
 // Extend the 'Block' type to include txid2sigMap and moeingads's update data
 type ExtendedBlock struct {
 	Block
-	Txid2sigMap map[[32]byte][65]byte `msg:"t2s"`
+	Txid2sigMap map[string][65]byte `msg:"t2s"`
 	UpdateOfADS map[string]string     `msg:"ua"`
 }
 

@@ -1198,35 +1198,65 @@ func (z *ExtendedBlock) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Block")
 				return
 			}
-		case "ua":
+		case "t2s":
 			var zb0002 uint32
 			zb0002, err = dc.ReadMapHeader()
 			if err != nil {
-				err = msgp.WrapError(err, "UpdateOfADS")
+				err = msgp.WrapError(err, "Txid2sigMap")
 				return
 			}
-			if z.UpdateOfADS == nil {
-				z.UpdateOfADS = make(map[string]string, zb0002)
-			} else if len(z.UpdateOfADS) > 0 {
-				for key := range z.UpdateOfADS {
-					delete(z.UpdateOfADS, key)
+			if z.Txid2sigMap == nil {
+				z.Txid2sigMap = make(map[string][65]byte, zb0002)
+			} else if len(z.Txid2sigMap) > 0 {
+				for key := range z.Txid2sigMap {
+					delete(z.Txid2sigMap, key)
 				}
 			}
 			for zb0002 > 0 {
 				zb0002--
 				var za0001 string
-				var za0002 string
+				var za0002 [65]byte
 				za0001, err = dc.ReadString()
+				if err != nil {
+					err = msgp.WrapError(err, "Txid2sigMap")
+					return
+				}
+				err = dc.ReadExactBytes((za0002)[:])
+				if err != nil {
+					err = msgp.WrapError(err, "Txid2sigMap", za0001)
+					return
+				}
+				z.Txid2sigMap[za0001] = za0002
+			}
+		case "ua":
+			var zb0003 uint32
+			zb0003, err = dc.ReadMapHeader()
+			if err != nil {
+				err = msgp.WrapError(err, "UpdateOfADS")
+				return
+			}
+			if z.UpdateOfADS == nil {
+				z.UpdateOfADS = make(map[string]string, zb0003)
+			} else if len(z.UpdateOfADS) > 0 {
+				for key := range z.UpdateOfADS {
+					delete(z.UpdateOfADS, key)
+				}
+			}
+			for zb0003 > 0 {
+				zb0003--
+				var za0004 string
+				var za0005 string
+				za0004, err = dc.ReadString()
 				if err != nil {
 					err = msgp.WrapError(err, "UpdateOfADS")
 					return
 				}
-				za0002, err = dc.ReadString()
+				za0005, err = dc.ReadString()
 				if err != nil {
-					err = msgp.WrapError(err, "UpdateOfADS", za0001)
+					err = msgp.WrapError(err, "UpdateOfADS", za0004)
 					return
 				}
-				z.UpdateOfADS[za0001] = za0002
+				z.UpdateOfADS[za0004] = za0005
 			}
 		default:
 			err = dc.Skip()
@@ -1241,9 +1271,9 @@ func (z *ExtendedBlock) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *ExtendedBlock) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
+	// map header, size 3
 	// write "Block"
-	err = en.Append(0x82, 0xa5, 0x42, 0x6c, 0x6f, 0x63, 0x6b)
+	err = en.Append(0x83, 0xa5, 0x42, 0x6c, 0x6f, 0x63, 0x6b)
 	if err != nil {
 		return
 	}
@@ -1251,6 +1281,28 @@ func (z *ExtendedBlock) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		err = msgp.WrapError(err, "Block")
 		return
+	}
+	// write "t2s"
+	err = en.Append(0xa3, 0x74, 0x32, 0x73)
+	if err != nil {
+		return
+	}
+	err = en.WriteMapHeader(uint32(len(z.Txid2sigMap)))
+	if err != nil {
+		err = msgp.WrapError(err, "Txid2sigMap")
+		return
+	}
+	for za0001, za0002 := range z.Txid2sigMap {
+		err = en.WriteString(za0001)
+		if err != nil {
+			err = msgp.WrapError(err, "Txid2sigMap")
+			return
+		}
+		err = en.WriteBytes((za0002)[:])
+		if err != nil {
+			err = msgp.WrapError(err, "Txid2sigMap", za0001)
+			return
+		}
 	}
 	// write "ua"
 	err = en.Append(0xa2, 0x75, 0x61)
@@ -1262,15 +1314,15 @@ func (z *ExtendedBlock) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "UpdateOfADS")
 		return
 	}
-	for za0001, za0002 := range z.UpdateOfADS {
-		err = en.WriteString(za0001)
+	for za0004, za0005 := range z.UpdateOfADS {
+		err = en.WriteString(za0004)
 		if err != nil {
 			err = msgp.WrapError(err, "UpdateOfADS")
 			return
 		}
-		err = en.WriteString(za0002)
+		err = en.WriteString(za0005)
 		if err != nil {
-			err = msgp.WrapError(err, "UpdateOfADS", za0001)
+			err = msgp.WrapError(err, "UpdateOfADS", za0004)
 			return
 		}
 	}
@@ -1280,20 +1332,27 @@ func (z *ExtendedBlock) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *ExtendedBlock) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
+	// map header, size 3
 	// string "Block"
-	o = append(o, 0x82, 0xa5, 0x42, 0x6c, 0x6f, 0x63, 0x6b)
+	o = append(o, 0x83, 0xa5, 0x42, 0x6c, 0x6f, 0x63, 0x6b)
 	o, err = z.Block.MarshalMsg(o)
 	if err != nil {
 		err = msgp.WrapError(err, "Block")
 		return
 	}
+	// string "t2s"
+	o = append(o, 0xa3, 0x74, 0x32, 0x73)
+	o = msgp.AppendMapHeader(o, uint32(len(z.Txid2sigMap)))
+	for za0001, za0002 := range z.Txid2sigMap {
+		o = msgp.AppendString(o, za0001)
+		o = msgp.AppendBytes(o, (za0002)[:])
+	}
 	// string "ua"
 	o = append(o, 0xa2, 0x75, 0x61)
 	o = msgp.AppendMapHeader(o, uint32(len(z.UpdateOfADS)))
-	for za0001, za0002 := range z.UpdateOfADS {
-		o = msgp.AppendString(o, za0001)
-		o = msgp.AppendString(o, za0002)
+	for za0004, za0005 := range z.UpdateOfADS {
+		o = msgp.AppendString(o, za0004)
+		o = msgp.AppendString(o, za0005)
 	}
 	return
 }
@@ -1322,35 +1381,65 @@ func (z *ExtendedBlock) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Block")
 				return
 			}
-		case "ua":
+		case "t2s":
 			var zb0002 uint32
 			zb0002, bts, err = msgp.ReadMapHeaderBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Txid2sigMap")
+				return
+			}
+			if z.Txid2sigMap == nil {
+				z.Txid2sigMap = make(map[string][65]byte, zb0002)
+			} else if len(z.Txid2sigMap) > 0 {
+				for key := range z.Txid2sigMap {
+					delete(z.Txid2sigMap, key)
+				}
+			}
+			for zb0002 > 0 {
+				var za0001 string
+				var za0002 [65]byte
+				zb0002--
+				za0001, bts, err = msgp.ReadStringBytes(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "Txid2sigMap")
+					return
+				}
+				bts, err = msgp.ReadExactBytes(bts, (za0002)[:])
+				if err != nil {
+					err = msgp.WrapError(err, "Txid2sigMap", za0001)
+					return
+				}
+				z.Txid2sigMap[za0001] = za0002
+			}
+		case "ua":
+			var zb0003 uint32
+			zb0003, bts, err = msgp.ReadMapHeaderBytes(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "UpdateOfADS")
 				return
 			}
 			if z.UpdateOfADS == nil {
-				z.UpdateOfADS = make(map[string]string, zb0002)
+				z.UpdateOfADS = make(map[string]string, zb0003)
 			} else if len(z.UpdateOfADS) > 0 {
 				for key := range z.UpdateOfADS {
 					delete(z.UpdateOfADS, key)
 				}
 			}
-			for zb0002 > 0 {
-				var za0001 string
-				var za0002 string
-				zb0002--
-				za0001, bts, err = msgp.ReadStringBytes(bts)
+			for zb0003 > 0 {
+				var za0004 string
+				var za0005 string
+				zb0003--
+				za0004, bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
 					err = msgp.WrapError(err, "UpdateOfADS")
 					return
 				}
-				za0002, bts, err = msgp.ReadStringBytes(bts)
+				za0005, bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
-					err = msgp.WrapError(err, "UpdateOfADS", za0001)
+					err = msgp.WrapError(err, "UpdateOfADS", za0004)
 					return
 				}
-				z.UpdateOfADS[za0001] = za0002
+				z.UpdateOfADS[za0004] = za0005
 			}
 		default:
 			bts, err = msgp.Skip(bts)
@@ -1366,11 +1455,18 @@ func (z *ExtendedBlock) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *ExtendedBlock) Msgsize() (s int) {
-	s = 1 + 6 + z.Block.Msgsize() + 3 + msgp.MapHeaderSize
-	if z.UpdateOfADS != nil {
-		for za0001, za0002 := range z.UpdateOfADS {
+	s = 1 + 6 + z.Block.Msgsize() + 4 + msgp.MapHeaderSize
+	if z.Txid2sigMap != nil {
+		for za0001, za0002 := range z.Txid2sigMap {
 			_ = za0002
-			s += msgp.StringPrefixSize + len(za0001) + msgp.StringPrefixSize + len(za0002)
+			s += msgp.StringPrefixSize + len(za0001) + msgp.ArrayHeaderSize + (65 * (msgp.ByteSize))
+		}
+	}
+	s += 3 + msgp.MapHeaderSize
+	if z.UpdateOfADS != nil {
+		for za0004, za0005 := range z.UpdateOfADS {
+			_ = za0005
+			s += msgp.StringPrefixSize + len(za0004) + msgp.StringPrefixSize + len(za0005)
 		}
 	}
 	return
