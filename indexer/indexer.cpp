@@ -4,6 +4,7 @@
 #include "bigmultimap.h"
 #include "indexer.h"
 
+// vector of tx-index for the txs in one block
 typedef std::vector<bits24> bits24_vec;
 
 // compact at most 3 20-bit integers into one 64-bit integer
@@ -17,9 +18,9 @@ uint64_t compact_index_list(uint32_t* index_ptr, int index_count) {
 	return res;
 }
 
-struct bits24_list {
+struct bits24_list { // a list of in-block-tx-index
 	bits24 arr[3];
-	bits24* data;
+	bits24* data; //pointing to a memory trunk managed by some other container
 	int size;
 	uint32_t get(int i) {
 		if(data==nullptr) return arr[i].to_uint32();
@@ -39,21 +40,21 @@ struct bits24_list {
 };
 
 inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec) {
-	if(i64_vec->size() == 0) {
+	if(i64_vec->size() == 0) { // vec_ptr is not used
 		auto res = i64_list{.vec_ptr=size_t(0), .data=nullptr, .size=0};
 		delete i64_vec;
 		return res;
-	} else if(i64_vec->size() == 1) {
+	} else if(i64_vec->size() == 1) { // vec_ptr is used to contain the single value
 		auto res = i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
 		delete i64_vec;
 		return res;
 	}
-	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()};
+	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()}; // vec_ptr is the object
 }
 
 //| Name                 | Key                         | Value                   |
 //| -------------------- | --------------------------- | ----------------------- |
-//| Block Content        | Height1 + 3 + Offset5       | Pointer to TxIndex3 Vec |
+//| Block Content        | Height1 + Height3 + Offset5 | Pointer to TxIndex3 Vec |
 //| BlockHash Index      | ShortHashID6                | Height4                 |
 //| Transaction Content  | Height4 + TxIndex3          | Offset5                 |
 //| TransactionHash Index| ShortHashID6                | Offset5                 |
@@ -142,9 +143,9 @@ public:
 		erase_in_log_map(topic_map, hash48, height);
 	}
 
-	// iterator over tx's id56
+	// iterator over tx's id56 (32b-block-height + 24b-in-block-tx-index)
 	class tx_iterator {
-		bool        _valid;
+		bool        _valid; // sticky variable
 		indexer*    _parent;
 		int         _end_idx;
 		uint64_t    _end_key;
@@ -161,8 +162,8 @@ public:
 				magic_u64 = (magic_u64<<3)>>3; //clear the tag
 				auto vec = _parent->get_vec_at_height(height, false);
 				assert(vec != nullptr);
-				_curr_list.size = (magic_u64 & ((1<<20)-1));
-				_curr_list.data = vec->data() + (magic_u64 >> 20);
+				_curr_list.size = (magic_u64 & ((1<<20)-1)); //low 20b for length
+				_curr_list.data = vec->data() + (magic_u64 >> 20); // high 44b for start position
 			} else { // no more than 3 members. extract them out from magic_u64
 				assert(tag != 0 && tag <= 3);
 				_curr_list = bits24_list::from_uint64(magic_u64);
@@ -174,7 +175,7 @@ public:
 		bool valid() {
 			return _valid && _iter.valid() && _curr_list_idx < _curr_list.size;
 		}
-		uint64_t value() {//returns id56: 4 bytes height and 3 bytes offset
+		uint64_t id56() {//returns id56: 4 bytes height and 3 bytes offset
 			if(!valid()) return uint64_t(-1);
 			auto height = uint64_t(uint32_t(_iter.key())); //discard the high 32 bits of Key
 			return (height<<24)|_curr_list.get(_curr_list_idx);
@@ -196,17 +197,17 @@ public:
 				load_list();
 			}
 		}
-		void next_till_value(uint64_t value) {
-			if(this->value() >= value) {
+		void next_till_id56(uint64_t id56) {
+			if(this->id56() >= id56) {
 				return;
 			}
-			uint32_t height = value >> 24;
+			uint32_t height = id56 >> 24;
 			uint64_t key = ((_end_key>>32)<<32)|uint64_t(height); // switch the target height
 			_iter = _log_map->get_iterator(_end_idx, key);
 			_valid = !is_after_end();
 			if(_valid) {
 				load_list();
-				while(this->value() < value) {
+				while(this->id56() < id56) {
 					next();
 				}
 			}
@@ -247,7 +248,7 @@ private:
 		auto i64_vec = new std::vector<int64_t>;
 		auto iter = _iterator_at_log_map(m, hash48, start_height, end_height);
 		for(int count = 0; iter.valid() && count++ < max_offset_count; iter.next()) {
-			i64_vec->push_back(offset_by_tx_id(iter.value()));
+			i64_vec->push_back(offset_by_tx_id(iter.id56()));
 		}
 		return vec_to_i64_list(i64_vec);
 	}
@@ -428,19 +429,19 @@ bool iters_all_valid(std::vector<indexer::tx_iterator>& iters) {
 	return true;
 }
 
-// *max_value will be the maximum one of the values pointing to by the iterators
+// *max_id56 will be the maximum one of the values pointing to by the iterators
 // returns true if all the iterators in vector are all pointing to this maximum value
 // note: the iterators must be all valid
-bool iters_value_all_equal_max_value(std::vector<indexer::tx_iterator>& iters, uint64_t *max_value) {
+bool iters_value_all_equal_max_id56(std::vector<indexer::tx_iterator>& iters, uint64_t *max_id56) {
 	assert(iters.size() != 0);
-	*max_value = iters[0].value();
+	*max_id56 = iters[0].id56();
 	bool all_equal = true;
 	for(int i=1; i < int(iters.size()); i++) {
-		if(iters[i].value() != *max_value) {
+		if(iters[i].id56() != *max_id56) {
 			all_equal = false;
 		}
-		if(iters[i].value() > *max_value) {
-			*max_value = iters[i].value();
+		if(iters[i].id56() > *max_id56) {
+			*max_id56 = iters[i].id56();
 		}
 	}
 	return all_equal;
@@ -460,16 +461,16 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 	}
 	auto i64_vec = new std::vector<int64_t>;
 	for(int count = 0; iters_all_valid(iters) && count < max_offset_count; count++) {
-		uint64_t max_value;
-		bool all_equal = iters_value_all_equal_max_value(iters, &max_value);
+		uint64_t max_id56;
+		bool all_equal = iters_value_all_equal_max_id56(iters, &max_id56);
 		if(all_equal) { // found a matching tx
-			i64_vec->push_back(offset_by_tx_id(iters[0].value()));
+			i64_vec->push_back(offset_by_tx_id(iters[0].id56()));
 			for(int i=0; i < int(iters.size()); i++) {
 				iters[i].next();
 			}
 		} else {
 			for(int i=0; i < int(iters.size()); i++) {
-				iters[i].next_till_value(max_value);
+				iters[i].next_till_id56(max_id56);
 			}
 		}
 	}

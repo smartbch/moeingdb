@@ -26,3 +26,6 @@ modb/fuzz/fuzz
 .idea/
 modb/test/data/
 modb/test/rocksdb.db/
+*.un~
+*.cpp~
+*.go~
