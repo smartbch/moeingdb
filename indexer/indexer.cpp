@@ -460,7 +460,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
 	}
 	auto i64_vec = new std::vector<int64_t>;
-	for(int count = 0; iters_all_valid(iters) && count < max_offset_count; count++) {
+	while(iters_all_valid(iters) && i64_vec->size() < size_t(max_offset_count)) {
 		uint64_t max_id56;
 		bool all_equal = iters_value_all_equal_max_id56(iters, &max_id56);
 		if(all_equal) { // found a matching tx
