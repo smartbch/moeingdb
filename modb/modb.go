@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -34,6 +35,11 @@ const (
 
 type RocksDB = indextree.RocksDB
 type HPFile = datatree.HPFile
+
+var (
+	ErrQueryConditionExpandedTooLarge = errors.New("query condition expanded too large")
+	ErrTooManyPotentialResults = errors.New("too many potential results")
+)
 
 // At this mutex, if a writer is trying to get a write-lock, no new reader can get read-lock
 type rwMutex struct {
@@ -608,7 +614,7 @@ func (db *MoDB) GetTxListByHeightWithRange(height int64, start, end int) [][]byt
 	}
 	id56Start := GetId56(uint32(height), start)
 	id56End := GetId56(uint32(height), end)
-	offList := db.indexer.GetOffsetsByTxIDRange(id56Start, id56End)
+	offList, _ := db.indexer.GetOffsetsByTxIDRange(id56Start, id56End)
 	res := make([][]byte, len(offList))
 	for i, offset40 := range offList {
 		res[i] = db.readInFile(offset40)
@@ -626,7 +632,8 @@ func (db *MoDB) GetBlockByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	hash48 := Sum48(db.seed, hash[:])
-	for _, offset40 := range db.indexer.GetOffsetsByBlockHash(hash48) {
+	offsets, _ := db.indexer.GetOffsetsByBlockHash(hash48)
+	for _, offset40 := range offsets {
 		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
@@ -640,7 +647,8 @@ func (db *MoDB) GetTxByHash(hash [32]byte, collectResult func([]byte) bool) {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	hash48 := Sum48(db.seed, hash[:])
-	for _, offset40 := range db.indexer.GetOffsetsByTxHash(hash48) {
+	offsets, _ := db.indexer.GetOffsetsByTxHash(hash48)
+	for _, offset40 := range offsets {
 		bz := db.readInFile(offset40)
 		if collectResult(bz) {
 			return
@@ -712,9 +720,6 @@ func expandQueryCondition(addrOrList [][20]byte, topicsOrList [][][32]byte) []ad
 	if len(topicsOrList) >= 4 && len(res) <= MaxExpandedSize && len(topicsOrList[3]) != 0 {
 		res = expandTopics(topicsOrList[3], res)
 	}
-	if len(res) > MaxExpandedSize {
-		return res[:MaxExpandedSize]
-	}
 	return res
 }
 
@@ -725,6 +730,9 @@ func expandTopics(topicOrList [][32]byte, inList []addrAndTopics) (outList []add
 	for _, aat := range inList {
 		for _, topic := range topicOrList {
 			outList = append(outList, aat.appendTopic(topic))
+			if len(outList) > MaxExpandedSize {
+				return
+			}
 		}
 	}
 	return
@@ -738,7 +746,8 @@ func reverseOffList(s []int64) {
 
 // Given 0~1 addr and 0~4 topics, feed the possibly-matching transactions to 'fn'; the return value of 'fn' indicates
 // whether it wants more data.
-func (db *MoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte,
+	startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	reverse := false
@@ -746,11 +755,15 @@ func (db *MoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, e
 		reverse = true
 		startHeight, endHeight = endHeight, startHeight
 	}
-	offList := db.getTxOffList(addr, topics, startHeight, endHeight)
+	offList, ok := db.getTxOffList(addr, topics, startHeight, endHeight)
+	if !ok {
+		return ErrTooManyPotentialResults
+	}
 	if reverse {
 		reverseOffList(offList)
 	}
 	db.runFnAtTxs(offList, fn)
+	return nil
 }
 
 // Read TXs out according to offset lists, and apply 'fn' to them
@@ -768,7 +781,7 @@ func (db *MoDB) runFnAtTxs(offList []int64, fn func([]byte) bool) {
 }
 
 // Get a list of TXs' offsets out from the indexer.
-func (db *MoDB) getTxOffList(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32) []int64 {
+func (db *MoDB) getTxOffList(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32) ([]int64, bool) {
 	addrHash48 := uint64(1) << 63 // an invalid value
 	if addr != nil {
 		addrHash48 = Sum48(db.seed, (*addr)[:])
@@ -780,17 +793,29 @@ func (db *MoDB) getTxOffList(addr *[20]byte, topics [][32]byte, startHeight, end
 	return db.indexer.QueryTxOffsets(addrHash48, topicHash48List, startHeight, endHeight)
 }
 
-func (db *MoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte,
+	startHeight, endHeight uint32, fn func([]byte) bool) error {
 	aatList := expandQueryCondition(addrOrList, topicsOrList)
+	if len(aatList) > MaxExpandedSize {
+		return ErrQueryConditionExpandedTooLarge
+	}
 	offLists := make([][]int64, len(aatList))
 	for i, aat := range aatList {
-		offLists[i] = db.getTxOffList(aat.addr, aat.topics, startHeight, endHeight)
+		var ok bool
+		offLists[i], ok = db.getTxOffList(aat.addr, aat.topics, startHeight, endHeight)
+		if !ok {
+			return ErrTooManyPotentialResults
+		}
 	}
 	offList := mergeOffLists(offLists)
+	if len(offList) > db.maxCount {
+		return ErrTooManyPotentialResults
+	}
 	db.runFnAtTxs(offList, fn)
+	return nil
 }
 
-func (db *MoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	addrHash48 := Sum48(db.seed, addr[:])
@@ -799,14 +824,18 @@ func (db *MoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn fu
 		reverse = true
 		startHeight, endHeight = endHeight, startHeight
 	}
-	offList := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
+	offList, ok := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
+	if !ok {
+		return ErrTooManyPotentialResults
+	}
 	if reverse {
 		reverseOffList(offList)
 	}
 	db.runFnAtTxs(offList, fn)
+	return nil
 }
 
-func (db *MoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	addrHash48 := Sum48(db.seed, addr[:])
@@ -815,14 +844,18 @@ func (db *MoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn fu
 		reverse = true
 		startHeight, endHeight = endHeight, startHeight
 	}
-	offList := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
+	offList, ok := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
+	if !ok {
+		return ErrTooManyPotentialResults
+	}
 	if reverse {
 		reverseOffList(offList)
 	}
 	db.runFnAtTxs(offList, fn)
+	return nil
 }
 
-func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.mtx.rLock()
 	defer db.mtx.rUnlock()
 	addrHash48 := Sum48(db.seed, addr[:])
@@ -831,13 +864,20 @@ func (db *MoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, 
 		reverse = true
 		startHeight, endHeight = endHeight, startHeight
 	}
-	offListSrc := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
-	offListDst := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
+	offListSrc, ok := db.indexer.QueryTxOffsetsBySrc(addrHash48, startHeight, endHeight)
+	if !ok {
+		return ErrTooManyPotentialResults
+	}
+	offListDst, ok := db.indexer.QueryTxOffsetsByDst(addrHash48, startHeight, endHeight)
+	if !ok {
+		return ErrTooManyPotentialResults
+	}
 	offList := mergeOffLists([][]int64{offListSrc, offListDst})
 	if reverse {
 		reverseOffList(offList)
 	}
 	db.runFnAtTxs(offList, fn)
+	return nil
 }
 
 func (db *MoDB) QueryNotificationCounter(key []byte) int64 {

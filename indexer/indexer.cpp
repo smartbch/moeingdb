@@ -39,7 +39,7 @@ struct bits24_list { // a list of in-block-tx-index
 	}
 };
 
-inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec) {
+inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec, size_t max_offset_count) {
 	if(i64_vec->size() == 0) { // vec_ptr is not used
 		auto res = i64_list{.vec_ptr=size_t(0), .data=nullptr, .size=0};
 		delete i64_vec;
@@ -48,6 +48,9 @@ inline i64_list vec_to_i64_list(std::vector<int64_t>* i64_vec) {
 		auto res = i64_list{.vec_ptr=size_t(i64_vec->at(0)), .data=nullptr, .size=i64_vec->size()};
 		delete i64_vec;
 		return res;
+	} else if(i64_vec->size() >= max_offset_count) { // too many items, report error
+		delete i64_vec;
+		return i64_list{.size=~size_t(0)};
 	}
 	return i64_list{.vec_ptr=(size_t)i64_vec, .data=i64_vec->data(), .size=i64_vec->size()}; // vec_ptr is the object
 }
@@ -80,7 +83,7 @@ class indexer {
 	log_map       dst_map;
 	log_map       addr_map;
 	log_map       topic_map;
-	int           max_offset_count;
+	size_t        max_offset_count;
 
 	typename blk_htpos2ptr::basic_map::iterator get_iter_at_height(uint32_t height, bool* ok);
 public:
@@ -98,7 +101,7 @@ public:
 	indexer& operator=(indexer&& other) = delete;
 
 	void set_max_offset_count(int c) {
-		max_offset_count = c;
+		max_offset_count = size_t(c);
 	}
 	void add_block(uint32_t height, uint64_t hash48, int64_t offset40);
 	void erase_block(uint32_t height, uint64_t hash48);
@@ -247,10 +250,10 @@ private:
 	i64_list query_tx_offsets_by(log_map& m, uint64_t hash48, uint32_t start_height, uint32_t end_height) {
 		auto i64_vec = new std::vector<int64_t>;
 		auto iter = _iterator_at_log_map(m, hash48, start_height, end_height);
-		for(int count = 0; iter.valid() && count++ < max_offset_count; iter.next()) {
+		for(int count = 0; iter.valid() && count++ < int(max_offset_count); iter.next()) {
 			i64_vec->push_back(offset_by_tx_id(iter.id56()));
 		}
-		return vec_to_i64_list(i64_vec);
+		return vec_to_i64_list(i64_vec, max_offset_count);
 	}
 public:
 	tx_iterator addr_iterator(uint64_t hash48, uint32_t start_height, uint32_t end_height) {
@@ -381,7 +384,7 @@ i64_list indexer::offsets_by_tx_id_range(uint64_t start_id56, uint64_t end_id56)
 		}
 		i64_vec->push_back(iter.value().to_int64());
 	}
-	return vec_to_i64_list(i64_vec);
+	return vec_to_i64_list(i64_vec, max_offset_count);
 }
 
 // given a transaction's hash48, return its offset
@@ -460,7 +463,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 		return i64_list{.vec_ptr=0, .data=nullptr, .size=0};
 	}
 	auto i64_vec = new std::vector<int64_t>;
-	while(iters_all_valid(iters) && i64_vec->size() < size_t(max_offset_count)) {
+	while(iters_all_valid(iters) && i64_vec->size() < max_offset_count) {
 		uint64_t max_id56;
 		bool all_equal = iters_value_all_equal_max_id56(iters, &max_id56);
 		if(all_equal) { // found a matching tx
@@ -474,7 +477,7 @@ i64_list indexer::query_tx_offsets(const tx_offsets_query& q) {
 			}
 		}
 	}
-	return vec_to_i64_list(i64_vec);
+	return vec_to_i64_list(i64_vec, max_offset_count);
 }
 
 // =============================================================================

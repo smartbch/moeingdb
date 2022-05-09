@@ -107,11 +107,11 @@ type DB interface {
 	GetTxListByHeightWithRange(height int64, start, end int) [][]byte
 	GetBlockByHash(hash [32]byte, collectResult func([]byte) bool)
 	GetTxByHash(hash [32]byte, collectResult func([]byte) bool)
-	BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
-	QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool)
-	QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
-	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
-	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool)
+	BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
+	QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
+	QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
+	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
+	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
 	QueryNotificationCounter(key []byte) int64
 
 	// This function's parameter limits these functions' returned entry count: BasicQueryLogs, QueryLogs, QueryTxBySrc, QueryTxByDst, QueryTxBySrcOrDst

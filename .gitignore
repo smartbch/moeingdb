@@ -29,3 +29,4 @@ modb/test/rocksdb.db/
 *.un~
 *.cpp~
 *.go~
+*.h~

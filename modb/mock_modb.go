@@ -143,7 +143,7 @@ func hasAllTopic(log types.Log, topics [][32]byte) bool {
 	return true
 }
 
-func (db *MockMoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MockMoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.mtx.RLock()
 	defer db.mtx.RUnlock()
 	for i := int64(startHeight); i < int64(endHeight); i++ {
@@ -161,23 +161,27 @@ func (db *MockMoDB) BasicQueryLogs(addr *[20]byte, topics [][32]byte, startHeigh
 				}
 				needMore := fn(tx.Content)
 				if !needMore {
-					return
+					return nil
 				}
 			}
 		}
 	}
+	return nil
 }
 
-func (db *MockMoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MockMoDB) QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.queryTx(false, true, addr, startHeight, endHeight, fn)
+	return nil
 }
 
-func (db *MockMoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MockMoDB) QueryTxBySrc(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.queryTx(true, false, addr, startHeight, endHeight, fn)
+	return nil
 }
 
-func (db *MockMoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MockMoDB) QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	db.queryTx(true, true, addr, startHeight, endHeight, fn)
+	return nil
 }
 
 func (db *MockMoDB) queryTx(bySrc bool, byDst bool, addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
@@ -198,9 +202,10 @@ func (db *MockMoDB) queryTx(bySrc bool, byDst bool, addr [20]byte, startHeight, 
 			}
 		}
 	}
+	return
 }
 
-func (db *MockMoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) {
+func (db *MockMoDB) QueryLogs(addrOrList [][20]byte, topicsOrList [][][32]byte, startHeight, endHeight uint32, fn func([]byte) bool) error {
 	panic("Implement Me")
 }
 
