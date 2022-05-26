@@ -38,7 +38,7 @@ type HPFile = datatree.HPFile
 
 var (
 	ErrQueryConditionExpandedTooLarge = errors.New("query condition expanded too large")
-	ErrTooManyPotentialResults = errors.New("too many potential results")
+	ErrTooManyPotentialResults        = errors.New("too many potential results")
 )
 
 // At this mutex, if a writer is trying to get a write-lock, no new reader can get read-lock
@@ -562,7 +562,12 @@ func (db *MoDB) readInFile(offset40 int64) []byte {
 
 // given a recent block's height, return its blockhash
 func (db *MoDB) GetBlockHashByHeight(height int64) (res [32]byte) {
-	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)].Load().(*BlockHeightAndHash)
+	heightAndHashV := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)].Load()
+	if heightAndHashV == nil {
+		db.logger.Debug(fmt.Sprintf("getBlockHashByHeight, heightAndHash is nil in height:%d", height))
+		return
+	}
+	heightAndHash := heightAndHashV.(*BlockHeightAndHash)
 	if heightAndHash == nil {
 		db.logger.Debug(fmt.Sprintf("getBlockHashByHeight, heightAndHash is nil in height:%d", height))
 		return
