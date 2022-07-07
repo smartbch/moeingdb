@@ -25,6 +25,13 @@ import (
 "BXXXX" ('B' followed by 4 bytes) the indexing information for a block
 "N------" ('N' followed by variable-length bytes) the notification counters
 "SIG+txid32" caches transactions' signatures
+
+cc-UTXO:
+ 'c'||Redeemable||UtxoId => nil
+ 'c'||LostAndFound||UtxoId => nil
+ 'c'||Redeeming||UtxoId => nil
+ 'c'||Addr2Utxo||CovenantAddr||UtxoId => nil
+ 'c'||UTXO||UtxoId => SourceType||CovenantAddr
 */
 
 const (
@@ -81,6 +88,8 @@ type MoDB struct {
 	disableComplexIndex bool
 	//Cache for latest blockhashes
 	latestBlockhashes [512]atomic.Value
+
+	opListsForCcUtxo OpListsForCcUtxo
 
 	logger log.Logger
 }
@@ -227,6 +236,7 @@ func (db *MoDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap ma
 	}
 	db.metadb.OpenNewBatch()
 	db.metadb.CurrBatch().Set([]byte("NEW"), db.blkBuf)
+	db.handleOpListsForCcUtxo()
 	for txid, sig := range txid2sigMap {
 		db.metadb.CurrBatch().Set(append([]byte("SIG"), txid[:]...), sig[:])
 	}
@@ -1018,3 +1028,98 @@ func EncodeToHex(b []byte) string {
 	hex.Encode(enc[2:], b)
 	return string(enc)
 }
+
+//================================
+
+const (
+	Redeemable   = byte(0)
+	LostAndFound = byte(1)
+	Redeeming    = byte(2)
+	Burn         = byte(9)
+	Addr2Utxo    = byte(10)
+	UTXO         = byte(255)
+)
+
+type NewRedeemableOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+}
+
+type NewLostAndFoundOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+}
+
+type RedeemOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+	SourceType   byte
+}
+
+type ChangeAddrOp struct {
+	UtxoId          [36]byte
+	OldCovenantAddr [20]byte
+	NewCovenantAddr [20]byte
+}
+
+type DeletedOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+	SourceType   byte
+}
+
+type OpListsForCcUtxo struct {
+	NewRedeemableOps   []NewRedeemableOp
+	NewLostAndFoundOps []NewLostAndFoundOp
+	RedeemOps          []RedeemOp
+	ChangeAddrOps      []ChangeAddrOp
+	DeletedOps         []DeletedOp
+}
+
+func (db *MoDB) SetOpListsForCcUtxo(opListsForCcUtxo OpListsForCcUtxo) {
+	db.opListsForCcUtxo = opListsForCcUtxo
+}
+
+func (db *MoDB) handleOpListsForCcUtxo() {
+	for _, op := range db.opListsForCcUtxo.NewRedeemableOps {
+		key := append(append([]byte("c"), Redeemable), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, []byte{})
+		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, []byte{})
+		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, append([]byte{Redeemable}, op.CovenantAddr[:]...))
+	}
+	for _, op := range db.opListsForCcUtxo.NewLostAndFoundOps {
+		key := append(append([]byte("c"), LostAndFound), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, []byte{})
+		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, append([]byte{LostAndFound}, op.CovenantAddr[:]...))
+	}
+	for _, op := range db.opListsForCcUtxo.RedeemOps {
+		key := append(append([]byte("c"), Redeeming), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, []byte{})
+		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, append([]byte{Redeeming}, op.CovenantAddr[:]...))
+		if op.SourceType != Burn {
+			key = append(append([]byte("c"), op.SourceType), op.UtxoId[:]...)
+			db.metadb.CurrBatch().Delete(key)
+		}
+		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
+	}
+	for _, op := range db.opListsForCcUtxo.ChangeAddrOps {
+		key := append(append(append([]byte("c"), Addr2Utxo), op.OldCovenantAddr[:]...), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
+		key = append(append(append([]byte("c"), Addr2Utxo), op.NewCovenantAddr[:]...), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, []byte{})
+		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, append([]byte{Redeemable}, op.NewCovenantAddr[:]...))
+	}
+	for _, op := range db.opListsForCcUtxo.DeletedOps {
+		key := append(append([]byte("c"), op.SourceType), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
+		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
+	}
+}
+
