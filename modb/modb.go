@@ -1123,3 +1123,62 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 	}
 }
 
+func (db *MoDB) getAllUtxoIds() [][36]byte {
+	keyPrefix := append([]byte("c"), UTXO)
+	return db.getUtxoIds(keyPrefix)
+}
+func (db *MoDB) getRedeemableUtxoIds() [][36]byte {
+	keyPrefix := append([]byte("c"), Redeemable)
+	return db.getUtxoIds(keyPrefix)
+}
+func (db *MoDB) getLostAndFoundUtxoIds() [][36]byte {
+	keyPrefix := append([]byte("c"), LostAndFound)
+	return db.getUtxoIds(keyPrefix)
+}
+func (db *MoDB) getRedeemingUtxoIds() [][36]byte {
+	keyPrefix := append([]byte("c"), Redeeming)
+	return db.getUtxoIds(keyPrefix)
+}
+func (db *MoDB) getUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
+	keyPrefix := append(append([]byte("c"), Addr2Utxo), covenantAddr[:]...)
+	return db.getUtxoIds(keyPrefix)
+}
+
+/*
+cc-UTXO:
+ 'c'||Redeemable||UtxoId => nil
+ 'c'||LostAndFound||UtxoId => nil
+ 'c'||Redeeming||UtxoId => nil
+ 'c'||Addr2Utxo||CovenantAddr||UtxoId => nil
+ 'c'||UTXO||UtxoId => SourceType||CovenantAddr
+*/
+func (db *MoDB) getUtxoIds(keyPrefix []byte) (ids [][36]byte) {
+	keyPrefixLen := len(keyPrefix)
+	start := append(keyPrefix, bytes.Repeat([]byte{0}, 36)...)
+	end := append(keyPrefix, bytes.Repeat([]byte{255}, 36)...)
+	iter := db.metadb.Iterator(start, end)
+	defer iter.Close()
+	for iter.Valid() {
+		utxoId := [36]byte{}
+		copy(utxoId[:], iter.Key()[keyPrefixLen:])
+		ids = append(ids, utxoId)
+		iter.Next()
+	}
+	return
+}
+
+func (db *MoDB) getUtxoInfos() (infos [][36 + 1 + 20]byte) {
+	keyPrefix := append([]byte("c"), UTXO)
+	start := append(keyPrefix, bytes.Repeat([]byte{0}, 36)...)
+	end := append(keyPrefix, bytes.Repeat([]byte{255}, 36)...)
+	iter := db.metadb.Iterator(start, end)
+	defer iter.Close()
+	for iter.Valid() {
+		info := [36 + 1 + 20]byte{}
+		copy(info[:], iter.Key()[2:])
+		copy(info[36:], iter.Value())
+		infos = append(infos, info)
+		iter.Next()
+	}
+	return
+}
