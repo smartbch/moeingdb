@@ -61,7 +61,7 @@ func (blk Block) Clone() (res Block) {
 type ExtendedBlock struct {
 	Block
 	Txid2sigMap map[string][65]byte `msg:"t2s"`
-	UpdateOfADS map[string]string     `msg:"ua"`
+	UpdateOfADS map[string]string   `msg:"ua"`
 }
 
 // an entry for address index or topic index
@@ -113,6 +113,13 @@ type DB interface {
 	QueryTxByDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
 	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
 	QueryNotificationCounter(key []byte) int64
+
+	GetUtxoInfos() (infos [][36 + 1 + 20]byte)
+	GetAllUtxoIds() [][36]byte
+	GetRedeemableUtxoIds() [][36]byte
+	GetLostAndFoundUtxoIds() [][36]byte
+	GetRedeemingUtxoIds() [][36]byte
+	GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte
 
 	// This function's parameter limits these functions' returned entry count: BasicQueryLogs, QueryLogs, QueryTxBySrc, QueryTxByDst, QueryTxBySrcOrDst
 	SetMaxEntryCount(c int)

@@ -1124,23 +1124,23 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 	}
 }
 
-func (db *MoDB) getAllUtxoIds() [][36]byte {
+func (db *MoDB) GetAllUtxoIds() [][36]byte {
 	keyPrefix := append([]byte("c"), UTXO)
 	return db.getUtxoIds(keyPrefix)
 }
-func (db *MoDB) getRedeemableUtxoIds() [][36]byte {
+func (db *MoDB) GetRedeemableUtxoIds() [][36]byte {
 	keyPrefix := append([]byte("c"), Redeemable)
 	return db.getUtxoIds(keyPrefix)
 }
-func (db *MoDB) getLostAndFoundUtxoIds() [][36]byte {
+func (db *MoDB) GetLostAndFoundUtxoIds() [][36]byte {
 	keyPrefix := append([]byte("c"), LostAndFound)
 	return db.getUtxoIds(keyPrefix)
 }
-func (db *MoDB) getRedeemingUtxoIds() [][36]byte {
+func (db *MoDB) GetRedeemingUtxoIds() [][36]byte {
 	keyPrefix := append([]byte("c"), Redeeming)
 	return db.getUtxoIds(keyPrefix)
 }
-func (db *MoDB) getUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
+func (db *MoDB) GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
 	keyPrefix := append(append([]byte("c"), Addr2Utxo), covenantAddr[:]...)
 	return db.getUtxoIds(keyPrefix)
 }
@@ -1168,7 +1168,7 @@ func (db *MoDB) getUtxoIds(keyPrefix []byte) (ids [][36]byte) {
 	return
 }
 
-func (db *MoDB) getUtxoInfos() (infos [][36 + 1 + 20]byte) {
+func (db *MoDB) GetUtxoInfos() (infos [][36 + 1 + 20]byte) {
 	keyPrefix := append([]byte("c"), UTXO)
 	start := append(keyPrefix, bytes.Repeat([]byte{0}, 36)...)
 	end := append(keyPrefix, bytes.Repeat([]byte{255}, 36)...)

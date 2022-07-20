@@ -532,30 +532,30 @@ func TestOpListsForCcUtxo(t *testing.T) {
 		"txhash_Redeemable____________123idx1\x00addr_____________111",
 		"txhash_Redeemable____________456idx2\x00addr_____________111",
 		"txhash_Redeemable____________789idx3\x00addr_____________111",
-	}, utxoInfosToStrs(db.getUtxoInfos()))
+	}, utxoInfosToStrs(db.GetUtxoInfos()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________456idx2",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getAllUtxoIds()))
+	}, utxoIdsToStrs(db.GetAllUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________456idx2",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getRedeemableUtxoIds()))
+	}, utxoIdsToStrs(db.GetRedeemableUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
-	}, utxoIdsToStrs(db.getLostAndFoundUtxoIds()))
-	require.Len(t, db.getRedeemingUtxoIds(), 0)
+	}, utxoIdsToStrs(db.GetLostAndFoundUtxoIds()))
+	require.Len(t, db.GetRedeemingUtxoIds(), 0)
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________456idx2",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
-	require.Len(t, db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________222")), 0)
+	}, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
+	require.Len(t, db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222")), 0)
 
 	// RedeemOps
 	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
@@ -577,31 +577,31 @@ func TestOpListsForCcUtxo(t *testing.T) {
 		"txhash_Redeemable____________123idx1\x00addr_____________111",
 		"txhash_Redeemable____________456idx2\x02addr_____________111", // SourceType changed
 		"txhash_Redeemable____________789idx3\x00addr_____________111",
-	}, utxoInfosToStrs(db.getUtxoInfos()))
+	}, utxoInfosToStrs(db.GetUtxoInfos()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________456idx2",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getAllUtxoIds()))
+	}, utxoIdsToStrs(db.GetAllUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		//"txhash_Redeemable____________456idx2", // deleted
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getRedeemableUtxoIds()))
+	}, utxoIdsToStrs(db.GetRedeemableUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
-	}, utxoIdsToStrs(db.getLostAndFoundUtxoIds()))
+	}, utxoIdsToStrs(db.GetLostAndFoundUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________456idx2", // added
-	}, utxoIdsToStrs(db.getRedeemingUtxoIds()))
+	}, utxoIdsToStrs(db.GetRedeemingUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
-	require.Len(t, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
+	}, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
+	require.Len(t, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
 
 	// DeletedOps
 	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
@@ -623,31 +623,31 @@ func TestOpListsForCcUtxo(t *testing.T) {
 		"txhash_Redeemable____________123idx1\x00addr_____________111",
 		"txhash_Redeemable____________456idx2\x02addr_____________111", // SourceType changed
 		"txhash_Redeemable____________789idx3\x00addr_____________111",
-	}, utxoInfosToStrs(db.getUtxoInfos()))
+	}, utxoInfosToStrs(db.GetUtxoInfos()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________456idx2",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getAllUtxoIds()))
+	}, utxoIdsToStrs(db.GetAllUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		//"txhash_Redeemable____________456idx2", // deleted
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getRedeemableUtxoIds()))
+	}, utxoIdsToStrs(db.GetRedeemableUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
-	}, utxoIdsToStrs(db.getLostAndFoundUtxoIds()))
+	}, utxoIdsToStrs(db.GetLostAndFoundUtxoIds()))
 	require.Equal(t, []string{
 		//"txhash_Redeemable____________456idx2", // deleted
-	}, utxoIdsToStrs(db.getRedeemingUtxoIds()))
+	}, utxoIdsToStrs(db.GetRedeemingUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
-	require.Len(t, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
+	}, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
+	require.Len(t, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
 
 	// ChangeAddrOps
 	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
@@ -676,31 +676,31 @@ func TestOpListsForCcUtxo(t *testing.T) {
 		"txhash_Redeemable____________123idx1\x00addr_____________222", // address changed
 		"txhash_Redeemable____________456idx2\x02addr_____________111",
 		"txhash_Redeemable____________789idx3\x00addr_____________222", // address changed
-	}, utxoInfosToStrs(db.getUtxoInfos()))
+	}, utxoInfosToStrs(db.GetUtxoInfos()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________456idx2",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getAllUtxoIds()))
+	}, utxoIdsToStrs(db.GetAllUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1",
 		"txhash_Redeemable____________789idx3",
-	}, utxoIdsToStrs(db.getRedeemableUtxoIds()))
+	}, utxoIdsToStrs(db.GetRedeemableUtxoIds()))
 	require.Equal(t, []string{
 		"txhash_LostAndFound__________111idx1",
 		"txhash_LostAndFound__________222idx2",
-	}, utxoIdsToStrs(db.getLostAndFoundUtxoIds()))
-	require.Equal(t, []string{}, utxoIdsToStrs(db.getRedeemingUtxoIds()))
+	}, utxoIdsToStrs(db.GetLostAndFoundUtxoIds()))
+	require.Equal(t, []string{}, utxoIdsToStrs(db.GetRedeemingUtxoIds()))
 	require.Equal(t, []string{
 		//"txhash_Redeemable____________123idx1", // deleted
 		//"txhash_Redeemable____________789idx3", // deleted
-	}, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
+	}, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
 	require.Equal(t, []string{
 		"txhash_Redeemable____________123idx1", // added
 		"txhash_Redeemable____________789idx3", // added
-	}, utxoIdsToStrs(db.getUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))))
+	}, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))))
 }
 
 func strToUtxoId(s string) (utxoId [36]byte) {
