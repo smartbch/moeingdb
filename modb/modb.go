@@ -1057,6 +1057,7 @@ type RedeemOp struct {
 }
 
 type ChangeAddrOp struct {
+	PrevUtxoId      [36]byte
 	UtxoId          [36]byte
 	OldCovenantAddr [20]byte
 	NewCovenantAddr [20]byte
@@ -1108,7 +1109,7 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 		db.metadb.CurrBatch().Delete(key)
 	}
 	for _, op := range db.opListsForCcUtxo.ChangeAddrOps {
-		key := append(append(append([]byte("c"), Addr2Utxo), op.OldCovenantAddr[:]...), op.UtxoId[:]...)
+		key := append(append(append([]byte("c"), Addr2Utxo), op.OldCovenantAddr[:]...), op.PrevUtxoId[:]...)
 		db.metadb.CurrBatch().Delete(key)
 		key = append(append(append([]byte("c"), Addr2Utxo), op.NewCovenantAddr[:]...), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, []byte{})

@@ -653,11 +653,13 @@ func TestOpListsForCcUtxo(t *testing.T) {
 	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
 		ChangeAddrOps: []ChangeAddrOp{
 			{
+				PrevUtxoId:      strToUtxoId("txhash_Redeemable____________123idx1"),
 				UtxoId:          strToUtxoId("txhash_Redeemable____________123idx1"),
 				OldCovenantAddr: strToAddr("addr_____________111"),
 				NewCovenantAddr: strToAddr("addr_____________222"),
 			},
 			{
+				PrevUtxoId:      strToUtxoId("txhash_Redeemable____________789idx3"),
 				UtxoId:          strToUtxoId("txhash_Redeemable____________789idx3"),
 				OldCovenantAddr: strToAddr("addr_____________111"),
 				NewCovenantAddr: strToAddr("addr_____________222"),
