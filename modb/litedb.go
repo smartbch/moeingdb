@@ -107,3 +107,10 @@ func (db *LiteDB) QueryNotificationCounter(key []byte) int64 {
 }
 func (db *LiteDB) SetMaxEntryCount(c int) {
 }
+
+func (db *LiteDB) GetUtxoInfos() (infos [][36 + 1 + 20]byte)                 { return nil }
+func (db *LiteDB) GetAllUtxoIds() [][36]byte                                 { return nil }
+func (db *LiteDB) GetRedeemableUtxoIds() [][36]byte                          { return nil }
+func (db *LiteDB) GetLostAndFoundUtxoIds() [][36]byte                        { return nil }
+func (db *LiteDB) GetRedeemingUtxoIds() [][36]byte                           { return nil }
+func (db *LiteDB) GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte { return nil }
