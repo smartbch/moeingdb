@@ -496,8 +496,8 @@ func TestOpListsForCcUtxo(t *testing.T) {
 	defer db.Close()
 
 	// NewRedeemableOps & NewLostAndFoundOps
-	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
-		NewRedeemableOps: []NewRedeemableOp{
+	db.SetOpListsForCcUtxo(types.OpListsForCcUtxo{
+		NewRedeemableOps: []types.NewRedeemableOp{
 			{
 				UtxoId:       strToUtxoId("txhash_Redeemable____________123idx1"),
 				CovenantAddr: strToAddr("addr_____________111"),
@@ -511,7 +511,7 @@ func TestOpListsForCcUtxo(t *testing.T) {
 				CovenantAddr: strToAddr("addr_____________111"),
 			},
 		},
-		NewLostAndFoundOps: []NewLostAndFoundOp{
+		NewLostAndFoundOps: []types.NewLostAndFoundOp{
 			{
 				UtxoId:       strToUtxoId("txhash_LostAndFound__________111idx1"),
 				CovenantAddr: strToAddr("addr_____________111"),
@@ -558,8 +558,8 @@ func TestOpListsForCcUtxo(t *testing.T) {
 	require.Len(t, db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222")), 0)
 
 	// RedeemOps
-	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
-		RedeemOps: []RedeemOp{
+	db.SetOpListsForCcUtxo(types.OpListsForCcUtxo{
+		RedeemOps: []types.RedeemOp{
 			{
 				UtxoId:       strToUtxoId("txhash_Redeemable____________456idx2"),
 				CovenantAddr: strToAddr("addr_____________111"),
@@ -604,8 +604,8 @@ func TestOpListsForCcUtxo(t *testing.T) {
 	require.Len(t, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
 
 	// DeletedOps
-	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
-		DeletedOps: []DeletedOp{
+	db.SetOpListsForCcUtxo(types.OpListsForCcUtxo{
+		DeletedOps: []types.DeletedOp{
 			{
 				UtxoId:       strToUtxoId("txhash_Redeemable____________456idx2"),
 				CovenantAddr: strToAddr("addr_____________111"),
@@ -650,8 +650,8 @@ func TestOpListsForCcUtxo(t *testing.T) {
 	require.Len(t, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
 
 	// ChangeAddrOps
-	db.SetOpListsForCcUtxo(OpListsForCcUtxo{
-		ChangeAddrOps: []ChangeAddrOp{
+	db.SetOpListsForCcUtxo(types.OpListsForCcUtxo{
+		ChangeAddrOps: []types.ChangeAddrOp{
 			{
 				PrevUtxoId:      strToUtxoId("txhash_Redeemable____________123idx1"),
 				UtxoId:          strToUtxoId("txhash_Redeemable____________123idx1"),

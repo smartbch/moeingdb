@@ -13,6 +13,8 @@ type MockMoDB struct {
 	height int64
 }
 
+var _ types.DB = &MockMoDB{}
+
 func (db *MockMoDB) Close() {
 }
 
@@ -21,6 +23,32 @@ func (db *MockMoDB) SetMaxEntryCount(c int) {
 
 func (db *MockMoDB) GetLatestHeight() int64 {
 	return db.height
+}
+
+func (db *MockMoDB) GetUtxoInfos() (infos [][57]byte) {
+	return nil
+}
+
+func (db *MockMoDB) GetAllUtxoIds() [][36]byte {
+	return nil
+}
+
+func (db *MockMoDB) GetRedeemableUtxoIds() [][36]byte {
+	return nil
+}
+
+func (db *MockMoDB) SetOpListsForCcUtxo(opListsForCcUtxo types.OpListsForCcUtxo) {}
+
+func (db *MockMoDB) GetLostAndFoundUtxoIds() [][36]byte {
+	return nil
+}
+
+func (db *MockMoDB) GetRedeemingUtxoIds() [][36]byte {
+	return nil
+}
+
+func (db *MockMoDB) GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
+	return nil
 }
 
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap map[[32]byte][65]byte) {

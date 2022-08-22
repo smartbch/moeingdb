@@ -114,6 +114,7 @@ type DB interface {
 	QueryTxBySrcOrDst(addr [20]byte, startHeight, endHeight uint32, fn func([]byte) bool) error
 	QueryNotificationCounter(key []byte) int64
 
+	SetOpListsForCcUtxo(opListsForCcUtxo OpListsForCcUtxo)
 	GetUtxoInfos() (infos [][36 + 1 + 20]byte)
 	GetAllUtxoIds() [][36]byte
 	GetRedeemableUtxoIds() [][36]byte
@@ -137,4 +138,41 @@ var TransferEvent = [32]byte{
 	0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
 	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16,
 	0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
+}
+
+type NewRedeemableOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+}
+
+type NewLostAndFoundOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+}
+
+type RedeemOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+	SourceType   byte
+}
+
+type ChangeAddrOp struct {
+	PrevUtxoId      [36]byte
+	UtxoId          [36]byte
+	OldCovenantAddr [20]byte
+	NewCovenantAddr [20]byte
+}
+
+type DeletedOp struct {
+	UtxoId       [36]byte
+	CovenantAddr [20]byte
+	SourceType   byte
+}
+
+type OpListsForCcUtxo struct {
+	NewRedeemableOps   []NewRedeemableOp
+	NewLostAndFoundOps []NewLostAndFoundOp
+	RedeemOps          []RedeemOp
+	ChangeAddrOps      []ChangeAddrOp
+	DeletedOps         []DeletedOp
 }

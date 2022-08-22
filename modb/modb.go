@@ -89,7 +89,7 @@ type MoDB struct {
 	//Cache for latest blockhashes
 	latestBlockhashes [512]atomic.Value
 
-	opListsForCcUtxo OpListsForCcUtxo
+	opListsForCcUtxo types.OpListsForCcUtxo
 
 	logger log.Logger
 }
@@ -1040,44 +1040,7 @@ const (
 	UTXO         = byte(255)
 )
 
-type NewRedeemableOp struct {
-	UtxoId       [36]byte
-	CovenantAddr [20]byte
-}
-
-type NewLostAndFoundOp struct {
-	UtxoId       [36]byte
-	CovenantAddr [20]byte
-}
-
-type RedeemOp struct {
-	UtxoId       [36]byte
-	CovenantAddr [20]byte
-	SourceType   byte
-}
-
-type ChangeAddrOp struct {
-	PrevUtxoId      [36]byte
-	UtxoId          [36]byte
-	OldCovenantAddr [20]byte
-	NewCovenantAddr [20]byte
-}
-
-type DeletedOp struct {
-	UtxoId       [36]byte
-	CovenantAddr [20]byte
-	SourceType   byte
-}
-
-type OpListsForCcUtxo struct {
-	NewRedeemableOps   []NewRedeemableOp
-	NewLostAndFoundOps []NewLostAndFoundOp
-	RedeemOps          []RedeemOp
-	ChangeAddrOps      []ChangeAddrOp
-	DeletedOps         []DeletedOp
-}
-
-func (db *MoDB) SetOpListsForCcUtxo(opListsForCcUtxo OpListsForCcUtxo) {
+func (db *MoDB) SetOpListsForCcUtxo(opListsForCcUtxo types.OpListsForCcUtxo) {
 	db.opListsForCcUtxo = opListsForCcUtxo
 }
 

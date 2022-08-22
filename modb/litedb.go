@@ -41,6 +41,8 @@ func (db *LiteDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap 
 	db.metadb.SetSync(blkKey, blkHH.toBytes())
 }
 
+func (db *LiteDB) SetOpListsForCcUtxo(opListsForCcUtxo types.OpListsForCcUtxo) {}
+
 func (db *LiteDB) GetBlockHashByHeight(height int64) (res [32]byte) {
 	heightAndHash := db.latestBlockhashes[int(height)%len(db.latestBlockhashes)]
 	if heightAndHash == nil {
