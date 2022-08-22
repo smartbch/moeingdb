@@ -149,7 +149,7 @@ func Query(db types.DB, useAddr bool, log types.Log, startHeight, endHeight uint
 	if !useAddr {
 		addr = nil
 	}
-	db.BasicQueryLogs(addr, log.Topics, startHeight, endHeight, func(info []byte) bool {
+	_ = db.BasicQueryLogs(addr, log.Topics, startHeight, endHeight, func(info []byte) bool {
 		txSet[string(info)] = struct{}{}
 		return true
 	})
@@ -158,7 +158,7 @@ func Query(db types.DB, useAddr bool, log types.Log, startHeight, endHeight uint
 
 func QueryTxBySrc(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
 	txSet := make(map[string]struct{})
-	db.QueryTxBySrc(addr, startHeight, endHeight, func(info []byte) bool {
+	_ = db.QueryTxBySrc(addr, startHeight, endHeight, func(info []byte) bool {
 		txSet[string(info)] = struct{}{}
 		return true
 	})
@@ -167,7 +167,7 @@ func QueryTxBySrc(db types.DB, addr [20]byte, startHeight, endHeight uint32) map
 
 func QueryTxByDst(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
 	txSet := make(map[string]struct{})
-	db.QueryTxByDst(addr, startHeight, endHeight, func(info []byte) bool {
+	_ = db.QueryTxByDst(addr, startHeight, endHeight, func(info []byte) bool {
 		txSet[string(info)] = struct{}{}
 		return true
 	})
@@ -176,7 +176,7 @@ func QueryTxByDst(db types.DB, addr [20]byte, startHeight, endHeight uint32) map
 
 func QueryTxBySrcOrDst(db types.DB, addr [20]byte, startHeight, endHeight uint32) map[string]struct{} {
 	txSet := make(map[string]struct{})
-	db.QueryTxBySrcOrDst(addr, startHeight, endHeight, func(info []byte) bool {
+	_ = db.QueryTxBySrcOrDst(addr, startHeight, endHeight, func(info []byte) bool {
 		txSet[string(info)] = struct{}{}
 		return true
 	})

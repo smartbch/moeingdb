@@ -197,19 +197,19 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool, remov
 		res = append(res, bz...)
 		return true
 	}
-	db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 3, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 3, getRes))
 	assert.Equal(t, " Tx1-0 Tx2-1", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(&bob, [][32]byte{t0, t1}, 1, 3, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&bob, [][32]byte{t0, t1}, 1, 3, getRes))
 	assert.Equal(t, " Tx1-0", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(&alice, [][32]byte{}, 1, 3, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&alice, [][32]byte{}, 1, 3, getRes))
 	assert.Equal(t, " Tx1-1 Tx2-0", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 3, getRes)
+	assert.Nil(t, db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 3, getRes))
 	assert.Equal(t, " Tx1-0 Tx1-1 Tx2-1", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(&bob, [][32]byte{t2}, 1, 3, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&bob, [][32]byte{t2}, 1, 3, getRes))
 	assert.Equal(t, " Tx2-1", string(res))
 
 	if !with3rdBlock {
@@ -281,16 +281,16 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool, remov
 	assert.Equal(t, "Tx3-1", string(bz[65:]))
 
 	res = res[:0]
-	db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 4, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&bob, [][32]byte{t1}, 1, 4, getRes))
 	assert.Equal(t, " Tx2-1 Tx3-0", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(&bob, [][32]byte{t0, t1}, 1, 4, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&bob, [][32]byte{t0, t1}, 1, 4, getRes))
 	assert.Equal(t, " Tx3-0", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(&alice, [][32]byte{}, 1, 4, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&alice, [][32]byte{}, 1, 4, getRes))
 	assert.Equal(t, " Tx2-0 Tx3-1", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 4, getRes)
+	assert.Nil(t, db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 4, getRes))
 	assert.Equal(t, " Tx2-1 Tx3-0 Tx3-1", string(res))
 	res = res[:0]
 	var getOnly1Res = func(bz []byte) bool {
@@ -301,10 +301,10 @@ func runDBTest(t *testing.T, db types.DB, withAdd bool, with3rdBlock bool, remov
 		res = append(res, bz...)
 		return false
 	}
-	db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 4, getOnly1Res)
+	assert.Nil(t, db.BasicQueryLogs(nil, [][32]byte{t1}, 1, 4, getOnly1Res))
 	assert.Equal(t, " Tx2-1", string(res))
 	res = res[:0]
-	db.BasicQueryLogs(&bob, [][32]byte{t2}, 1, 4, getRes)
+	assert.Nil(t, db.BasicQueryLogs(&bob, [][32]byte{t2}, 1, 4, getRes))
 	assert.Equal(t, " Tx2-1", string(res))
 }
 
