@@ -156,7 +156,7 @@ type RedeemOp struct {
 	SourceType   byte
 }
 
-type ChangeAddrOp struct {
+type ConvertOp struct {
 	PrevUtxoId      [36]byte
 	UtxoId          [36]byte
 	OldCovenantAddr [20]byte
@@ -173,6 +173,6 @@ type OpListsForCcUtxo struct {
 	NewRedeemableOps   []NewRedeemableOp
 	NewLostAndFoundOps []NewLostAndFoundOp
 	RedeemOps          []RedeemOp
-	ChangeAddrOps      []ChangeAddrOp
+	ConvertOps         []ConvertOp
 	DeletedOps         []DeletedOp
 }

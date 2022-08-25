@@ -1071,7 +1071,7 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Delete(key)
 	}
-	for _, op := range db.opListsForCcUtxo.ChangeAddrOps {
+	for _, op := range db.opListsForCcUtxo.ConvertOps {
 		key := append(append(append([]byte("c"), Addr2Utxo), op.OldCovenantAddr[:]...), op.PrevUtxoId[:]...)
 		db.metadb.CurrBatch().Delete(key)
 		key = append(append(append([]byte("c"), Addr2Utxo), op.NewCovenantAddr[:]...), op.UtxoId[:]...)

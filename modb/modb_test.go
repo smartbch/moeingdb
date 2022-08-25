@@ -649,9 +649,9 @@ func TestOpListsForCcUtxo(t *testing.T) {
 	}, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________111"))))
 	require.Len(t, utxoIdsToStrs(db.GetUtxoIdsByCovenantAddr(strToAddr("addr_____________222"))), 0)
 
-	// ChangeAddrOps
+	// ConvertOps
 	db.SetOpListsForCcUtxo(types.OpListsForCcUtxo{
-		ChangeAddrOps: []types.ChangeAddrOp{
+		ConvertOps: []types.ConvertOp{
 			{
 				PrevUtxoId:      strToUtxoId("txhash_Redeemable____________123idx1"),
 				UtxoId:          strToUtxoId("txhash_Redeemable____________123idx1"),
