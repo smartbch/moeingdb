@@ -1076,8 +1076,16 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 		db.metadb.CurrBatch().Delete(key)
 		key = append(append(append([]byte("c"), Addr2Utxo), op.NewCovenantAddr[:]...), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, []byte{})
+
+		key = append(append([]byte("c"), UTXO), op.PrevUtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
 		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, append([]byte{Redeemable}, op.NewCovenantAddr[:]...))
+
+		key = append(append([]byte("c"), Redeemable), op.PrevUtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
+		key = append(append([]byte("c"), Redeemable), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Set(key, []byte{})
 	}
 	for _, op := range db.opListsForCcUtxo.DeletedOps {
 		key := append(append([]byte("c"), op.SourceType), op.UtxoId[:]...)
