@@ -1092,6 +1092,8 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 		db.metadb.CurrBatch().Delete(key)
 		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Delete(key)
+		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
+		db.metadb.CurrBatch().Delete(key)
 	}
 }
 
