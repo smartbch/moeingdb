@@ -1118,6 +1118,12 @@ func (db *MoDB) GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
 	return db.getUtxoIds(keyPrefix)
 }
 
+func (db *MoDB) GetRedeemableUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
+	keyPrefixA := append([]byte("c"), Redeemable)
+	keyPrefixB := append(append([]byte("c"), Addr2Utxo), covenantAddr[:]...)
+	return db.getCommonUtxoIds(keyPrefixA, keyPrefixB)
+}
+
 /*
 cc-UTXO:
  'c'||Redeemable||UtxoId => nil
@@ -1137,6 +1143,34 @@ func (db *MoDB) getUtxoIds(keyPrefix []byte) (ids [][36]byte) {
 		copy(utxoId[:], iter.Key()[keyPrefixLen:])
 		ids = append(ids, utxoId)
 		iter.Next()
+	}
+	return
+}
+
+func (db *MoDB) getCommonUtxoIds(keyPrefixA, keyPrefixB []byte) (ids [][36]byte) {
+	startA := append(keyPrefixA, bytes.Repeat([]byte{0}, 36)...)
+	endA := append(keyPrefixA, bytes.Repeat([]byte{255}, 36)...)
+	iterA := db.metadb.Iterator(startA, endA)
+	defer iterA.Close()
+	startB := append(keyPrefixB, bytes.Repeat([]byte{0}, 36)...)
+	endB := append(keyPrefixB, bytes.Repeat([]byte{255}, 36)...)
+	iterB := db.metadb.Iterator(startB, endB)
+	defer iterB.Close()
+	for iterA.Valid() && iterB.Valid() {
+		utxoIdA := [36]byte{}
+		copy(utxoIdA[:], iterA.Key()[len(keyPrefixA):])
+		utxoIdB := [36]byte{}
+		copy(utxoIdB[:], iterB.Key()[len(keyPrefixB):])
+		cmp := bytes.Compare(utxoIdA[:], utxoIdB[:])
+		if cmp == 0 {
+			ids = append(ids, utxoIdA)
+			iterA.Next()
+			iterB.Next()
+		} else if cmp > 0 {
+			iterB.Next()
+		} else { // cmp < 0
+			iterA.Next()
+		}
 	}
 	return
 }
