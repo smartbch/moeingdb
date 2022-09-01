@@ -51,6 +51,10 @@ func (db *MockMoDB) GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
 	return nil
 }
 
+func (db *MockMoDB) GetRedeemableUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte {
+	return nil
+}
+
 func (db *MockMoDB) AddBlock(blk *types.Block, pruneTillHeight int64, txid2sigMap map[[32]byte][65]byte) {
 	if blk == nil {
 		return

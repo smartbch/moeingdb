@@ -121,6 +121,7 @@ type DB interface {
 	GetLostAndFoundUtxoIds() [][36]byte
 	GetRedeemingUtxoIds() [][36]byte
 	GetUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte
+	GetRedeemableUtxoIdsByCovenantAddr(covenantAddr [20]byte) [][36]byte
 
 	// This function's parameter limits these functions' returned entry count: BasicQueryLogs, QueryLogs, QueryTxBySrc, QueryTxByDst, QueryTxBySrcOrDst
 	SetMaxEntryCount(c int)
