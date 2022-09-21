@@ -3,6 +3,7 @@ package syncdb
 import (
 	"bytes"
 	"encoding/binary"
+	//"fmt"
 	"os"
 	"sync"
 
@@ -76,6 +77,7 @@ func NewSyncDB(path string) *SyncDB {
 		if err != nil {
 			panic(err)
 		}
+		hpfile.Flush()
 	} else {
 		db.recoverIndex()
 	}
@@ -113,6 +115,7 @@ func (db *SyncDB) appendToFile(data []byte) int64 {
 
 func (db *SyncDB) Set(height int64, data []byte) {
 	pos := db.appendToFile(data)
+	//fmt.Printf("Set pos: %d data %s\n", pos, string(data))
 	db.index.Set(height, pos)
 }
 
@@ -142,9 +145,9 @@ func (db *SyncDB) getNextPos(pos int64) int64 {
 	if !bytes.Equal(datatree.MagicBytes[:], buf[:8]) {
 		panic("Data Record Not Start With MagicBytes")
 	}
-	length := int(binary.LittleEndian.Uint64(buf[8:]) + 16)
+	length := int(binary.LittleEndian.Uint64(buf[8:]))
 	pad := Padding64(16 + length)
-	return pos + 16 + int64(length+pad)
+	return pos + 16 + int64(length) + int64(pad)
 }
 
 func (db *SyncDB) recoverIndex() {
@@ -152,6 +155,10 @@ func (db *SyncDB) recoverIndex() {
 	pos := int64(64)
 	size := db.hpfile.Size()
 	for pos+16 < size {
+		//fmt.Printf("Current Pos %d\n", pos)
+		if pos%64 != 0 {
+			panic("Invalid Position")
+		}
 		db.index.Set(height, pos/64)
 		pos = db.getNextPos(pos)
 		height++
