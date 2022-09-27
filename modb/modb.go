@@ -1056,17 +1056,20 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 	for _, op := range db.opListsForCcUtxo.NewLostAndFoundOps {
 		key := append(append([]byte("c"), LostAndFound), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, []byte{})
+		db.logger.Debug("NewLostAndFoundOps write kv", "txid", hex.EncodeToString(op.UtxoId[:32]))
 		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, append([]byte{LostAndFound}, op.CovenantAddr[:]...))
 	}
 	for _, op := range db.opListsForCcUtxo.RedeemOps {
 		key := append(append([]byte("c"), Redeeming), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, []byte{})
+		db.logger.Debug("RedeemOps write kv", "txid", hex.EncodeToString(op.UtxoId[:32]))
 		key = append(append([]byte("c"), UTXO), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Set(key, append([]byte{Redeeming}, op.CovenantAddr[:]...))
 		if op.SourceType != Burn {
 			key = append(append([]byte("c"), op.SourceType), op.UtxoId[:]...)
 			db.metadb.CurrBatch().Delete(key)
+			db.logger.Debug("RedeemOps delete kv", "txid", hex.EncodeToString(op.UtxoId[:32]), "sourceType", op.SourceType)
 		}
 		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Delete(key)
@@ -1088,6 +1091,11 @@ func (db *MoDB) handleOpListsForCcUtxo() {
 		db.metadb.CurrBatch().Set(key, []byte{})
 	}
 	for _, op := range db.opListsForCcUtxo.DeletedOps {
+		db.logger.Debug("DeletedOps delete kv", "txid", hex.EncodeToString(op.UtxoId[:32]), "sourceType", op.SourceType)
+		if op.SourceType == LostAndFound {
+			//change to redeeming
+			op.SourceType = Redeeming
+		}
 		key := append(append([]byte("c"), op.SourceType), op.UtxoId[:]...)
 		db.metadb.CurrBatch().Delete(key)
 		key = append(append(append([]byte("c"), Addr2Utxo), op.CovenantAddr[:]...), op.UtxoId[:]...)
